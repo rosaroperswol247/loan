@@ -15,6 +15,8 @@ export default function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [verificationRequired, setVerificationRequired] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -50,10 +52,44 @@ export default function RegisterPage() {
         return;
       }
 
+      if (data.confirmationRequired) {
+        setVerificationRequired(true);
+        setLoading(false);
+        return;
+      }
+
       // Auto login user
       localStorage.setItem('loan_user', JSON.stringify(data.user));
 
       // Direct to personal info step
+      router.push('/personal-info');
+    } catch (err) {
+      console.error(err);
+      setError('নেটওয়ার্ক সমস্যা, অনুগ্রহ করে আবার চেষ্টা করুন');
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyPhone = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phone.trim(), token: verificationCode.trim() })
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setError(data.message || 'যাচাইকরণ ব্যর্থ হয়েছে');
+        setLoading(false);
+        return;
+      }
+
+      localStorage.setItem('loan_user', JSON.stringify(data.user));
       router.push('/personal-info');
     } catch (err) {
       console.error(err);
@@ -82,7 +118,30 @@ export default function RegisterPage() {
           </div>
         )}
 
-        {/* Register Form */}
+        {verificationRequired ? (
+          <form onSubmit={handleVerifyPhone} className="space-y-4">
+            <p className="text-sm text-slate-600">{phone} নম্বরে পাঠানো ৬ সংখ্যার কোড দিন।</p>
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              pattern="[0-9]{6}"
+              maxLength={6}
+              value={verificationCode}
+              onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
+              placeholder="৬ সংখ্যার কোড"
+              className="w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-lg text-center text-lg font-mono tracking-widest text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+              required
+            />
+            <button
+              type="submit"
+              disabled={loading || verificationCode.length !== 6}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg flex items-center justify-center space-x-2 disabled:opacity-70"
+            >
+              {loading ? 'যাচাই করা হচ্ছে...' : 'ফোন নম্বর যাচাই করুন'}
+            </button>
+          </form>
+        ) : (
         <form onSubmit={handleRegister} className="space-y-3.5">
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">
@@ -189,6 +248,7 @@ export default function RegisterPage() {
             )}
           </button>
         </form>
+        )}
 
         {/* Security badge */}
         <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-center space-x-1.5 text-[11px] text-slate-400">

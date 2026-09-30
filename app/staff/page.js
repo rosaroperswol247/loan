@@ -82,7 +82,6 @@ export default function StaffDashboardPage() {
   // Editable Applicant Details state
   const [editStatus, setEditStatus] = useState('');
   const [editBalance, setEditBalance] = useState(0);
-  const [editPassword, setEditPassword] = useState('');
   const [editUpdating, setEditUpdating] = useState(false);
   const [editSuccess, setEditSuccess] = useState('');
 
@@ -119,7 +118,6 @@ export default function StaffDashboardPage() {
     setSelectedApplicant(applicant);
     setEditStatus(applicant.status);
     setEditBalance(applicant.userBalance || 0);
-    setEditPassword(applicant.user?.password || '');
     setNoticeSuccess('');
     setEditSuccess('');
   };
@@ -220,16 +218,6 @@ export default function StaffDashboardPage() {
         })
       });
 
-      await fetch('/api/staff/applicant', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: selectedApplicant.userId,
-          password: editPassword,
-          userBalance: editBalance
-        })
-      });
-
       setEditSuccess('তথ্য সফলভাবে হালনাগাদ করা হয়েছে!');
       fetchStaffData();
     } catch (err) {
@@ -239,7 +227,8 @@ export default function StaffDashboardPage() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
     localStorage.removeItem('staff_session');
     router.push('/staff/login');
   };
@@ -587,15 +576,6 @@ export default function StaffDashboardPage() {
                     </span>
                   </div>
 
-                  <div className="bg-rose-600/20 border border-rose-500/50 rounded-xl p-3 flex flex-col justify-between shadow-sm">
-                    <span className="text-[10px] text-rose-300 font-semibold uppercase">Password</span>
-                    <input
-                      type="text"
-                      value={editPassword}
-                      onChange={(e) => setEditPassword(e.target.value)}
-                      className="bg-transparent font-mono font-bold text-sm text-rose-300 mt-1 focus:outline-none border-b border-rose-500/40"
-                    />
-                  </div>
                 </div>
               </div>
 

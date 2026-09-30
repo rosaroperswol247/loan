@@ -1,16 +1,33 @@
 import { NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
+import { getAuthContext, unauthorizedResponse } from '@/lib/api-auth';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get('userId');
+  try {
+    const { supabase, user } = await getAuthContext();
+    if (!user) return unauthorizedResponse();
 
-  if (!userId) {
-    return NextResponse.json({ success: false, message: 'User ID প্রয়োজন' }, { status: 400 });
+    const { data, error } = await supabase
+      .from('notices')
+      .select('id, user_id, loan_id, title, message, status, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    const notices = (data || []).map(notice => ({
+      id: notice.id,
+      userId: notice.user_id,
+      loanId: notice.loan_id,
+      title: notice.title,
+      message: notice.message,
+      status: notice.status,
+      createdAt: notice.created_at,
+    }));
+
+    return NextResponse.json({ success: true, notices });
+  } catch (error) {
+    console.error('Load notices error:', error);
+    return NextResponse.json({ success: false, message: 'সার্ভার ত্রুটি' }, { status: 500 });
   }
-
-  const db = getDb();
-  const userNotices = (db.notices || []).filter(n => n.userId === userId);
-
-  return NextResponse.json({ success: true, notices: userNotices });
 }

@@ -92,7 +92,7 @@ export default function StaffLoginPage() {
         <form onSubmit={handleStaffLogin} className="space-y-4 relative z-10">
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1">
-              Admin Username / Phone
+              Staff Phone Number
             </label>
             <div className="relative">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
@@ -102,7 +102,7 @@ export default function StaffLoginPage() {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter admin username"
+                placeholder="Enter staff phone number"
                 autoComplete="off"
                 className="w-full pl-9 pr-3 py-2.5 bg-[#070e22] border border-blue-900/60 rounded-xl text-xs font-semibold text-white focus:outline-none focus:border-cyan-400 transition-all font-mono"
                 required

@@ -1,38 +1,60 @@
 import { NextResponse } from 'next/server';
-import { getDb, saveDb } from '@/lib/db';
+import { getAuthContext, unauthorizedResponse } from '@/lib/api-auth';
+
+export const dynamic = 'force-dynamic';
+
+function toClientLoan(loan) {
+  if (!loan) return null;
+  return {
+    id: loan.id,
+    userId: loan.user_id,
+    applicantName: loan.applicant_name,
+    phone: loan.phone,
+    purpose: loan.purpose,
+    amount: Number(loan.amount),
+    tenureMonths: loan.tenure_months,
+    interestRate: Number(loan.interest_rate),
+    monthlyEmi: Number(loan.monthly_emi),
+    totalRepayment: Number(loan.total_repayment),
+    status: loan.status,
+    userBalance: Number(loan.user_balance),
+    createdAt: loan.created_at,
+    updatedAt: loan.updated_at,
+  };
+}
 
 export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get('userId');
+  try {
+    const { supabase, user } = await getAuthContext();
+    if (!user) return unauthorizedResponse();
 
-  if (!userId) {
-    return NextResponse.json({ success: false, message: 'User ID প্রয়োজন' }, { status: 400 });
+    const { data, error } = await supabase
+      .from('loans')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    const allLoans = (data || []).map(toClientLoan);
+    return NextResponse.json({ success: true, loan: allLoans[0] || null, allLoans });
+  } catch (error) {
+    console.error('Load loans error:', error);
+    return NextResponse.json({ success: false, message: 'সার্ভার ত্রুটি' }, { status: 500 });
   }
-
-  const db = getDb();
-  // Find latest loan for user
-  const userLoans = db.loans.filter(l => l.userId === userId);
-  const latestLoan = userLoans.length > 0 ? userLoans[userLoans.length - 1] : null;
-
-  return NextResponse.json({ success: true, loan: latestLoan, allLoans: userLoans });
 }
 
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { userId, purpose, amount, tenureMonths } = body;
-
-    if (!userId || !amount || !tenureMonths) {
-      return NextResponse.json({ success: false, message: 'ঋণের পরিমাণ ও মেয়াদ নির্বাচন করুন' }, { status: 400 });
-    }
-
-    const db = getDb();
-    const user = db.users.find(u => u.id === userId);
-    const applicantName = user ? user.fullName : 'Applicant';
-    const phone = user ? user.phone : '';
+    const { purpose, amount, tenureMonths } = body;
+    const { supabase, user, profile } = await getAuthContext();
+    if (!user) return unauthorizedResponse();
 
     const numAmount = Number(amount);
     const numTenure = Number(tenureMonths);
+    if (!Number.isFinite(numAmount) || numAmount <= 0 || !Number.isInteger(numTenure) || numTenure <= 0) {
+      return NextResponse.json({ success: false, message: 'ঋণের পরিমাণ ও মেয়াদ নির্বাচন করুন' }, { status: 400 });
+    }
 
     // Flat annual interest rate of 2.4% per year.
     // Total Repayment = Principal + (Principal x Tenure/12 x 0.024)
@@ -42,30 +64,26 @@ export async function POST(request) {
     const totalRepayment = Math.round(numAmount + interestAmount);
     const monthlyEmi = Number((totalRepayment / numTenure).toFixed(2));
 
-    const loanId = 'LN-' + Math.floor(1000 + Math.random() * 9000);
-    const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    const { data, error } = await supabase
+      .from('loans')
+      .insert({
+        user_id: user.id,
+        applicant_name: profile?.fullName || user.user_metadata?.full_name || 'Applicant',
+        phone: profile?.phone || user.phone || '',
+        purpose: purpose || 'personal-loan',
+        amount: numAmount,
+        tenure_months: numTenure,
+        interest_rate: interestRate,
+        monthly_emi: monthlyEmi,
+        total_repayment: totalRepayment,
+      })
+      .select('*')
+      .single();
 
-    const newLoan = {
-      id: loanId,
-      userId,
-      applicantName,
-      phone,
-      purpose: purpose || 'personal-loan',
-      amount: numAmount,
-      tenureMonths: numTenure,
-      interestRate,
-      monthlyEmi,
-      totalRepayment,
-      status: 'pending',
-      userBalance: 0,
-      createdAt: now,
-      updatedAt: now
-    };
+    if (error) throw error;
+    const loan = toClientLoan(data);
 
-    db.loans.push(newLoan);
-    saveDb(db);
-
-    return NextResponse.json({ success: true, message: 'ঋণ আবেদন সফলভাবে জমা হয়েছে', loan: newLoan });
+    return NextResponse.json({ success: true, message: 'ঋণ আবেদন সফলভাবে জমা হয়েছে', loan });
   } catch (err) {
     console.error('Submit loan error:', err);
     return NextResponse.json({ success: false, message: 'সার্ভার ত্রুটি' }, { status: 500 });

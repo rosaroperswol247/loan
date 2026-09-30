@@ -102,8 +102,8 @@ The system is a full-stack web application built with **Next.js 14**, **React 18
 |                  (Auth, Loan, Messages, Documents)                     |
 |                                   |                                    |
 |                        +----------v----------+                         |
-|                        | File-Backed JSON DB |                         |
-|                        |    (data/db.json)   |                         |
+|                        | Supabase PostgreSQL |                         |
+|                        | Auth + Private Store|                         |
 |                        +---------------------+                         |
 +------------------------------------------------------------------------+
 ```
@@ -111,7 +111,7 @@ The system is a full-stack web application built with **Next.js 14**, **React 18
 ### 2.2 System Features Summary
 | Feature Group | Key Capabilities |
 | :--- | :--- |
-| **Authentication** | Password login, phone-number identity, role-based routing (Customer vs Staff Admin). Preset admin account, credentials never displayed on the login screen. |
+| **Authentication** | Supabase Auth password login with verified phone identity, cookie sessions, and database-backed staff roles. |
 | **KYC Capture** | Personal information, blood group, NID image attachments, applicant photo, digital signature pad. |
 | **Nominee & Bank** | Nominee relationship binding, optional nominee attachments, payout method selection (bKash/Nagad/Rocket/Bank). |
 | **Dynamic Dashboard** | Automatic transformation from application form to active loan dashboard after submission. |
@@ -123,25 +123,25 @@ The system is a full-stack web application built with **Next.js 14**, **React 18
 ### 2.3 User Classes and Personas
 1. **Loan Applicant (Customer):** accesses the portal via smartphone browser; needs clear Bangla typography and transparent EMI figures.
 2. **Credit Verification Officer (Staff):** accesses `/staff` on desktop/tablet; reviews KYC, updates status, and sends informational messages.
-3. **Branch Manager / Administrator:** holds the preset credentials to approve/reject, adjust balances, generate the lender's documents, or delete invalid applications.
+3. **Branch Manager / Administrator:** a separately provisioned staff account can approve/reject, adjust balances, generate lender documents, or delete invalid applications.
 
 ### 2.4 Operating Environment & Technology Stack
-- **Runtime Engine:** Node.js v18.x–v22.x LTS.
-- **Core Framework:** Next.js 14.2.x (App Router).
+- **Runtime Engine:** Node.js v20.9+ LTS (Node 22 LTS recommended).
+- **Core Framework:** Next.js 16.x (App Router and Proxy).
 - **Frontend UI:** React 18, Tailwind CSS v3.4, Lucide React icons.
 - **Typography:** Google Fonts (`Hind Siliguri` for Bengali, `Inter` for alphanumeric).
-- **Data Store:** File-backed JSON (`lib/db.js` → `data/db.json`).
+- **Data Store:** Supabase PostgreSQL with Row Level Security; private Supabase Storage for applicant documents.
 - **Signature Subsystem:** HTML5 Canvas 2D with high-DPI scaling and touch/pointer handling.
 - **Document Output:** CSS `@media print` with vector/DOM rendering.
 
-> **Security note:** the file-based store keeps passwords in plaintext for prototype simplicity. Before any real deployment, migrate to a proper database and hash passwords (e.g., bcrypt/argon2), add server-side session authentication for the staff routes, and serve over HTTPS.
+> **Security note:** passwords are managed by Supabase Auth. Staff access and applicant data are checked on the server and constrained by database policies. HTTPS, SMS-provider configuration, and review of applicable privacy and financial regulations are required for deployment.
 
 ### 2.5 Design & Implementation Constraints
-- The application starts with an **empty** data store (only the preset admin account exists). All customer, profile, loan, and message records are created by real usage after the site starts; no demo data is pre-populated.
-- Image uploads are encoded to Base64 Data URLs and stored inline in the JSON store (adequate for a prototype; object storage recommended for production).
+- User and staff records are provisioned through Supabase Auth; staff membership is granted explicitly in `staff_members`.
+- Identity images are uploaded to a private Storage bucket and served using short-lived signed URLs.
 
 ### 2.6 Assumptions & Dependencies
-- A single administrator account is provisioned at first run.
+- A Supabase project, verified SMS provider, and at least one explicitly provisioned staff account are required.
 - The host has network access to Google Fonts (or a local fallback font is acceptable).
 
 ---
@@ -371,13 +371,14 @@ All documents are the lender's own, on MyBank branding. No document is attribute
 - EMI calculation is synchronous in-browser.
 
 ### 7.2 Security & Access Controls
-- Staff routes SHALL be gated by a session check (client-side in the prototype; server-side auth recommended for production).
-- Text inputs SHALL be trimmed; production deployments SHOULD add output escaping and CSRF protection.
-- Passwords SHALL be hashed and transport SHALL be HTTPS before any real deployment (see the security note in §2.4).
+- Protected APIs SHALL derive identity from a verified Supabase Auth session, never from a client-supplied user ID.
+- Database tables and private document storage SHALL enforce Row Level Security policies.
+- Passwords SHALL be managed by Supabase Auth and transport SHALL use HTTPS.
+- Staff privileges SHALL be granted through the server-managed `staff_members` table, never browser-supplied metadata.
 
 ### 7.3 Reliability & Data Availability
-- `lib/db.js` SHALL perform directory checks and seed the admin account on cold start if `data/db.json` is absent.
-- The data store starts empty apart from the admin account.
+- Customer data SHALL persist in Supabase PostgreSQL and private Supabase Storage across application deploys.
+- Production deployments SHALL configure backups and recovery for their Supabase project.
 
 ### 7.4 Usability & Localization
 - Bilingual interface: Bengali typography for the customer journey alongside English technical labels.
@@ -389,13 +390,13 @@ All documents are the lender's own, on MyBank branding. No document is attribute
 
 | ID | Test Scenario | Expected Outcome | Status |
 | :--- | :--- | :--- | :--- |
-| **TC-01** | User registers with a new phone | User created; redirect to `/personal-info`. | PASS |
+| **TC-01** | User registers with a new phone | SMS verification is required before redirect to `/personal-info`. | PASS |
 | **TC-02** | Register with a duplicate phone | Error: "এই ফোন নম্বরটি ইতিমধ্যে নিবন্ধিত আছে।" | PASS |
 | **TC-03** | User draws signature and submits | Canvas exports Base64 PNG; persisted. | PASS |
 | **TC-04** | User submits a loan application | Form transitions into the active dashboard with three metric cards. | PASS |
 | **TC-05** | Unauthorized visit to `/staff` | Redirect to `/staff/login`. | PASS |
-| **TC-06** | Admin enters preset credentials | Access granted; staff dashboard loads. | PASS |
-| **TC-06b** | Login screen inspection | Admin username/password are neither shown nor pre-filled. | PASS |
+| **TC-06** | Non-staff user calls staff API | Request is rejected. | PASS |
+| **TC-06b** | Customer changes submitted user ID | API continues to access only the authenticated customer's records. | PASS |
 | **TC-07** | EMI check (৳50,000 / 12 mo) | Total = ৳51,200; EMI = ৳4,266.67. | PASS |
 | **TC-08** | Staff metric cards | Counts equal the real number of records (no fabricated baseline). | PASS |
 | **TC-09** | Staff sends a message | Applicant dashboard shows an informational message with no pay control. | PASS |
@@ -419,9 +420,5 @@ npm run dev
 - **Protected Staff Login:** `http://localhost:3000/staff/login`
 - **Staff Dashboard:** `http://localhost:3000/staff`
 
-### Administrator Credentials
-A single administrator account is preset in `lib/db.js` / `data/db.json`:
-- **Username:** `admin`
-- **Password:** `admin123`
-
-These are intentionally **not** shown on the login screen. To change them, edit `ADMIN_USERNAME` / `ADMIN_PASSWORD` in `lib/db.js` (or the record in `data/db.json`) and restart the server. There is no pre-seeded customer account; customer records are created only through registration after the site starts.
+### Supabase Configuration
+Copy `.env.example` to `.env.local`, fill in the Supabase URL and publishable key, apply the SQL migration, configure a verified SMS provider, and provision staff as described in [`supabase/SETUP.md`](supabase/SETUP.md). There is no default admin account or password.

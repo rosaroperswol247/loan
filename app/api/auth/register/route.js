@@ -1,43 +1,64 @@
 import { NextResponse } from 'next/server';
-import { getDb, saveDb } from '@/lib/db';
+import { cookies } from 'next/headers';
+import { createClient } from '@/utils/supabase/server';
+import { getPublicUser } from '@/lib/api-auth';
+import { normalizePhone } from '@/lib/phone';
 
 export async function POST(request) {
   try {
     const { fullName, phone, password } = await request.json();
+    const normalizedPhone = normalizePhone(phone);
 
-    if (!fullName || !phone || !password) {
-      return NextResponse.json({ success: false, message: 'সবগুলো ঘর পূরণ করুন' }, { status: 400 });
+    if (!fullName?.trim() || !normalizedPhone || !password || password.length < 10) {
+      return NextResponse.json(
+        { success: false, message: 'নাম, সঠিক ফোন নম্বর এবং কমপক্ষে ১০ অক্ষরের পাসওয়ার্ড দিন' },
+        { status: 400 }
+      );
     }
 
-    const db = getDb();
-    const existing = db.users.find(u => u.phone === phone);
-    if (existing) {
-      return NextResponse.json({ success: false, message: 'এই ফোন নম্বরটি ইতিমধ্যে নিবন্ধিত আছে।' }, { status: 400 });
-    }
-
-    // Generate 4-digit ID
-    const newId = String(Math.floor(1000 + Math.random() * 9000));
-    const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
-
-    const newUser = {
-      id: newId,
-      fullName,
-      phone,
+    const supabase = createClient(await cookies());
+    const { data, error } = await supabase.auth.signUp({
+      phone: normalizedPhone,
       password,
-      role: 'user',
-      createdAt: now
-    };
-
-    db.users.push(newUser);
-    saveDb(db);
-
-    return NextResponse.json({
-      success: true,
-      message: 'নিবন্ধন সফল হয়েছে',
-      user: { id: newUser.id, fullName: newUser.fullName, phone: newUser.phone, role: newUser.role }
+      options: { data: { full_name: fullName.trim() } },
     });
+
+    if (error) {
+      const duplicate = /already|registered/i.test(error.message);
+      return NextResponse.json(
+        {
+          success: false,
+          message: duplicate
+            ? 'এই ফোন নম্বরটি ইতিমধ্যে নিবন্ধিত আছে।'
+            : 'নিবন্ধন করা যায়নি। ফোন নম্বর এবং Supabase SMS সেটিংস যাচাই করুন।',
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!data.user) {
+      return NextResponse.json(
+        { success: false, message: 'নিবন্ধন করা যায়নি' },
+        { status: 400 }
+      );
+    }
+
+    if (!data.session) {
+      return NextResponse.json({
+        success: true,
+        confirmationRequired: true,
+        phone: normalizedPhone,
+        message: 'আপনার ফোনে পাঠানো যাচাইকরণ কোডটি লিখুন',
+      });
+    }
+
+    const user = await getPublicUser(supabase, data.user);
+    return NextResponse.json({ success: true, user });
   } catch (error) {
     console.error('Register error:', error);
-    return NextResponse.json({ success: false, message: 'সার্ভার ত্রুটি ঘটেছে' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, message: 'সার্ভার ত্রুটি ঘটেছে' },
+      { status: 500 }
+    );
   }
 }

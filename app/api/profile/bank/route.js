@@ -1,43 +1,70 @@
 import { NextResponse } from 'next/server';
-import { getDb, saveDb } from '@/lib/db';
+import { getAuthContext, unauthorizedResponse } from '@/lib/api-auth';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get('userId');
+  try {
+    const { supabase, user } = await getAuthContext();
+    if (!user) return unauthorizedResponse();
 
-  if (!userId) {
-    return NextResponse.json({ success: false, message: 'User ID প্রয়োজন' }, { status: 400 });
+    const { data, error } = await supabase
+      .from('bank_info')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (error) throw error;
+
+    return NextResponse.json({
+      success: true,
+      data: data ? {
+        userId: data.user_id,
+        method: data.method,
+        accountNumber: data.account_number,
+        bankName: data.bank_name,
+        accountHolderName: data.account_holder_name,
+        updatedAt: data.updated_at,
+      } : null,
+    });
+  } catch (error) {
+    console.error('Load bank info error:', error);
+    return NextResponse.json({ success: false, message: 'সার্ভার ত্রুটি' }, { status: 500 });
   }
-
-  const db = getDb();
-  const info = db.bankInfo[userId] || null;
-  return NextResponse.json({ success: true, data: info });
 }
 
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { userId, method, accountNumber, bankName, accountHolderName } = body;
+    const { method, accountNumber, bankName, accountHolderName } = body;
+    const { supabase, user, profile } = await getAuthContext();
+    if (!user) return unauthorizedResponse();
 
-    if (!userId || !method || !accountNumber) {
+    if (!method || !accountNumber) {
       return NextResponse.json({ success: false, message: 'সবগুলো প্রয়োজনীয় ঘর পূরণ করুন' }, { status: 400 });
     }
 
-    const db = getDb();
-    const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
-
-    db.bankInfo[userId] = {
-      userId,
+    const { data, error } = await supabase.from('bank_info').upsert({
+      user_id: user.id,
       method,
-      accountNumber,
-      bankName: bankName || db.bankInfo[userId]?.bankName || (method === 'bank' ? '' : 'Mobile Wallet'),
-      accountHolderName: accountHolderName || db.users.find(u => u.id === userId)?.fullName || 'Account Holder',
-      updatedAt: now
-    };
+      account_number: accountNumber,
+      bank_name: bankName || (method === 'bank' ? '' : 'Mobile Wallet'),
+      account_holder_name: accountHolderName || profile?.fullName || 'Account Holder',
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' }).select('*').single();
+    if (error) throw error;
 
-    saveDb(db);
-
-    return NextResponse.json({ success: true, message: 'ব্যাংক একাউন্ট তথ্য সংরক্ষিত হয়েছে', data: db.bankInfo[userId] });
+    return NextResponse.json({
+      success: true,
+      message: 'ব্যাংক একাউন্ট তথ্য সংরক্ষিত হয়েছে',
+      data: {
+        userId: data.user_id,
+        method: data.method,
+        accountNumber: data.account_number,
+        bankName: data.bank_name,
+        accountHolderName: data.account_holder_name,
+        updatedAt: data.updated_at,
+      },
+    });
   } catch (err) {
     console.error('Bank info error:', err);
     return NextResponse.json({ success: false, message: 'সার্ভার ত্রুটি' }, { status: 500 });

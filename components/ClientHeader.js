@@ -6,7 +6,8 @@ import { LogOut, Landmark } from 'lucide-react';
 export default function ClientHeader() {
   const router = useRouter();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
     if (typeof window !== 'undefined') {
       localStorage.removeItem('loan_user');
     }

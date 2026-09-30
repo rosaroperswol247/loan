@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 250" width="100%" height="100%">
+  <rect width="400" height="250" rx="12" fill="#f8fafc" stroke="#64748b" stroke-width="2"/>
+  <rect x="20" y="20" width="360" height="60" rx="4" fill="#e2e8f0"/>
+  <text x="30" y="45" font-family="sans-serif" font-size="12" fill="#1e293b">ঠিকানা: গ্রাম/রাস্তা: কিশোরগঞ্জ সদর, ডাকঘর: কিশোরগঞ্জ</text>
+  <text x="30" y="65" font-family="sans-serif" font-size="12" fill="#1e293b">উপজেলা: কিশোরগঞ্জ, জেলা: কিশোরগঞ্জ</text>
+  <rect x="20" y="100" width="360" height="40" fill="#0f172a"/>
+  <text x="200" y="125" font-family="monospace" font-size="15" fill="#f8fafc" text-anchor="middle">||| ||||| ||||||| ||| |||||||| ||||||</text>
+  <text x="30" y="180" font-family="sans-serif" font-size="12" fill="#475569">রক্তের গ্রুপ: O+ | প্রদানকারী কর্তৃপক্ষ: নির্বাচন কমিশন</text>
+  <text x="30" y="210" font-family="sans-serif" font-size="11" fill="#94a3b8">মুদ্রণ তারিখ: 15/04/2018</text>
+</svg>

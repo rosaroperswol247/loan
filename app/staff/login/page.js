@@ -38,7 +38,7 @@ export default function StaffLoginPage() {
         return;
       }
 
-      if (data.user.role !== 'staff') {
+      if (!['staff', 'admin'].includes(data.user.role)) {
         setError('অননুমোদিত প্রবেশ! এটি শুধুমাত্র ব্যাংক স্টাফদের জন্য সংরক্ষিত।');
         setLoading(false);
         return;

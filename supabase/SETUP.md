@@ -14,7 +14,9 @@ Set the site's production URL and allowed redirect URLs under **Authentication â
 
 ## 3. Create the first staff account
 
-Create and verify a staff user's phone account through Supabase Auth. Then run this query in SQL Editor, replacing the number with that account's E.164 phone number (for Bangladesh, for example, `+8801712345678`):
+In **Authentication â†’ Users**, select **Add user** and create the staff account with its E.164 phone number (for Bangladesh, for example, `+8801701234567`) and a strong, unique password. Phone confirmation is disabled for this project, so no OTP is needed. Do not use a short numeric PIN for an administrator account; staff can access applicant identity and banking information.
+
+Then run this query in SQL Editor, replacing the number with the staff account's phone number:
 
 ```sql
 insert into public.staff_members (user_id, role)

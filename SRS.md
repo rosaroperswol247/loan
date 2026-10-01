@@ -111,7 +111,7 @@ The system is a full-stack web application built with **Next.js 14**, **React 18
 ### 2.2 System Features Summary
 | Feature Group | Key Capabilities |
 | :--- | :--- |
-| **Authentication** | Supabase Auth password login with verified phone identity, cookie sessions, and database-backed staff roles. |
+| **Authentication** | Supabase email/password login with confirmation links, cookie sessions, and database-backed staff roles. Phone numbers are contact data only. |
 | **KYC Capture** | Personal information, blood group, NID image attachments, applicant photo, digital signature pad. |
 | **Nominee & Bank** | Nominee relationship binding, optional nominee attachments, payout method selection (bKash/Nagad/Rocket/Bank). |
 | **Dynamic Dashboard** | Automatic transformation from application form to active loan dashboard after submission. |
@@ -141,7 +141,7 @@ The system is a full-stack web application built with **Next.js 14**, **React 18
 - Identity images are uploaded to a private Storage bucket and served using short-lived signed URLs.
 
 ### 2.6 Assumptions & Dependencies
-- A Supabase project with phone confirmation disabled and at least one explicitly provisioned staff account are required.
+- A Supabase project with email authentication and allowed confirmation-link redirects, plus at least one explicitly provisioned staff account, is required.
 - The host has network access to Google Fonts (or a local fallback font is acceptable).
 
 ---
@@ -284,11 +284,11 @@ erDiagram
 ## 5. System Features & Functional Requirements
 
 ### 5.1 Module 1: Authentication & Protected Access Control
-- **FR-1.1:** The system SHALL validate phone numbers and prohibit duplicate registrations.
+- **FR-1.1:** The system SHALL validate email addresses and contact phone numbers and prohibit duplicate email registrations.
 - **FR-1.2:** The system SHALL provide password reveal/conceal toggles on password fields.
 - **FR-1.3:** Staff routes SHALL be isolated behind a credential challenge at `/staff/login`.
 - **FR-1.4:** Unauthenticated visits to `/staff` SHALL redirect to `/staff/login`.
-- **FR-1.5:** A single administrator account SHALL be preset at first run. Its credentials SHALL **not** be displayed or pre-filled on the login screen. Valid admin credentials SHALL grant access to `/staff` and persist a session in `localStorage.staff_session`.
+- **FR-1.5:** Staff accounts SHALL be explicitly granted a role in `staff_members`. Valid staff credentials SHALL grant access to `/staff` and persist a session in `localStorage.staff_session`.
 
 ### 5.2 Module 2: Multi-Step KYC & Identity Capture
 - **FR-2.1:** `/personal-info` SHALL capture Applicant Full Name, Father's Name, Mother's Name, and NID Number.
@@ -390,8 +390,8 @@ All documents are the lender's own, on MyBank branding. No document is attribute
 
 | ID | Test Scenario | Expected Outcome | Status |
 | :--- | :--- | :--- | :--- |
-| **TC-01** | User registers with a new phone | Account is created without an SMS code and redirects to `/personal-info`. | PASS |
-| **TC-02** | Register with a duplicate phone | Error: "এই ফোন নম্বরটি ইতিমধ্যে নিবন্ধিত আছে।" | PASS |
+| **TC-01** | User registers with a new email | Confirmation link creates a session and redirects to `/personal-info`. | PASS |
+| **TC-02** | Register with a duplicate email | Registration is rejected with an account-already-registered message. | PASS |
 | **TC-03** | User draws signature and submits | Canvas exports Base64 PNG; persisted. | PASS |
 | **TC-04** | User submits a loan application | Form transitions into the active dashboard with three metric cards. | PASS |
 | **TC-05** | Unauthorized visit to `/staff` | Redirect to `/staff/login`. | PASS |
@@ -421,4 +421,4 @@ npm run dev
 - **Staff Dashboard:** `http://localhost:3000/staff`
 
 ### Supabase Configuration
-Copy `.env.example` to `.env.local`, fill in the Supabase URL and publishable key, apply the SQL migration, disable phone confirmation, and provision staff as described in [`supabase/SETUP.md`](supabase/SETUP.md). There is no default admin account or password.
+Copy `.env.example` to `.env.local`, fill in the Supabase URL and publishable key, apply the SQL migrations, configure email confirmation redirects, and provision staff as described in [`supabase/SETUP.md`](supabase/SETUP.md). There is no default admin account or password.

@@ -3,11 +3,11 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Phone, Lock, Eye, EyeOff, LogIn, UserPlus, ShieldCheck, Landmark } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, LogIn, UserPlus, ShieldCheck, Landmark } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -17,8 +17,8 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
 
-    if (!phone) {
-      setError('অনুগ্রহ করে ফোন নম্বর দিন');
+    if (!email) {
+      setError('অনুগ্রহ করে ইমেইল দিন');
       return;
     }
     if (!password) {
@@ -31,13 +31,13 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phone.trim(), password: password.trim() })
+        body: JSON.stringify({ email: email.trim(), password: password.trim() })
       });
 
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        setError(data.message || 'ফোন নম্বর অথবা পাসওয়ার্ড ভুল হয়েছে');
+        setError(data.message || 'ইমেইল অথবা পাসওয়ার্ড ভুল হয়েছে');
         setLoading(false);
         return;
       }
@@ -82,17 +82,18 @@ export default function LoginPage() {
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">
-              ফোন নম্বর
+              ইমেইল
             </label>
             <div className="relative">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
-                <Phone size={16} />
+                <Mail size={16} />
               </span>
               <input
-                type="text"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="আপনার ফোন নম্বর লিখুন"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="আপনার ইমেইল লিখুন"
                 className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-mono"
                 required
               />

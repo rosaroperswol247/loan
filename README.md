@@ -34,7 +34,7 @@ npm run dev
 
 ### 🔐 Supabase সেটআপ
 
-প্রথমবার চালানোর আগে [Supabase সেটআপ গাইড](supabase/SETUP.md) অনুসরণ করুন। এতে SQL migration চালানো, phone/password authentication চালু করা, স্টাফ অ্যাকাউন্ট অনুমোদন এবং deployment environment variables যোগ করার ধাপ আছে। কোনো ডিফল্ট `admin/admin123` অ্যাকাউন্ট নেই; স্টাফ অ্যাকাউন্ট Supabase-এ তৈরি ও অনুমোদিত করতে হবে।
+প্রথমবার চালানোর আগে [Supabase সেটআপ গাইড](supabase/SETUP.md) অনুসরণ করুন। এতে SQL migration চালানো, email/password authentication চালু করা, স্টাফ অ্যাকাউন্ট অনুমোদন এবং deployment environment variables যোগ করার ধাপ আছে। কোনো ডিফল্ট `admin/admin123` অ্যাকাউন্ট নেই; স্টাফ অ্যাকাউন্ট Supabase-এ তৈরি ও অনুমোদিত করতে হবে।
 
 ---
 
@@ -62,5 +62,5 @@ npm run dev
 
 ### 🚀 লাইভ ডেপ্লয়
 
-Supabase migration এবং phone/password Auth সেটআপ শেষ করে Vercel-এ `NEXT_PUBLIC_SUPABASE_URL` ও `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` যোগ করুন, তারপর GitHub repository deploy করুন। `data/db.json`-এর পুরোনো স্থানীয় তথ্য স্বয়ংক্রিয়ভাবে স্থানান্তরিত হবে না; নিরাপদভাবে নতুন অ্যাকাউন্ট তৈরি করুন এবং বাস্তব গ্রাহকের তথ্য ব্যবহারের আগে access policies পরীক্ষা করুন।
+Supabase migration এবং email/password Auth সেটআপ শেষ করে Vercel-এ `NEXT_PUBLIC_SUPABASE_URL` ও `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` যোগ করুন, তারপর GitHub repository deploy করুন। `data/db.json`-এর পুরোনো স্থানীয় তথ্য স্বয়ংক্রিয়ভাবে স্থানান্তরিত হবে না; নিরাপদভাবে নতুন অ্যাকাউন্ট তৈরি করুন এবং বাস্তব গ্রাহকের তথ্য ব্যবহারের আগে access policies পরীক্ষা করুন।
 

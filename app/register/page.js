@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { User, Phone, Lock, Eye, EyeOff, UserPlus, LogIn, ShieldCheck, Landmark } from 'lucide-react';
+import { User, Mail, Phone, Lock, Eye, EyeOff, UserPlus, LogIn, ShieldCheck, Landmark } from 'lucide-react';
 
 export default function RegisterPage() {
   const router = useRouter();
   const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -15,12 +16,14 @@ export default function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
   const handleRegister = async (e) => {
     e.preventDefault();
     setError('');
+    setNotice('');
 
-    if (!fullName || !phone || !password) {
+    if (!fullName || !email || !phone || !password) {
       setError('অনুগ্রহ করে সবগুলো ঘর পূরণ করুন');
       return;
     }
@@ -37,6 +40,7 @@ export default function RegisterPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fullName: fullName.trim(),
+          email: email.trim(),
           phone: phone.trim(),
           password: password.trim()
         })
@@ -46,6 +50,12 @@ export default function RegisterPage() {
 
       if (!res.ok || !data.success) {
         setError(data.message || 'নিবন্ধন ব্যর্থ হয়েছে');
+        setLoading(false);
+        return;
+      }
+
+      if (data.confirmationRequired) {
+        setNotice(data.message);
         setLoading(false);
         return;
       }
@@ -82,6 +92,12 @@ export default function RegisterPage() {
           </div>
         )}
 
+        {notice && (
+          <div className="mb-4 p-3 bg-emerald-50 border-l-4 border-emerald-500 rounded text-emerald-700 text-xs font-medium">
+            {notice}
+          </div>
+        )}
+
         <form onSubmit={handleRegister} className="space-y-3.5">
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">
@@ -104,7 +120,27 @@ export default function RegisterPage() {
 
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">
-              ফোন নম্বর
+              ইমেইল
+            </label>
+            <div className="relative">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                <Mail size={16} />
+              </span>
+              <input
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="আপনার ইমেইল লিখুন"
+                className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">
+              যোগাযোগের ফোন নম্বর
             </label>
             <div className="relative">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">

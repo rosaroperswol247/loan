@@ -2,29 +2,28 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
 import { getPublicUser } from '@/lib/api-auth';
-import { normalizePhone } from '@/lib/phone';
 
 export async function POST(request) {
   try {
-    const { phone, password } = await request.json();
-    const normalizedPhone = normalizePhone(phone);
+    const { email, password } = await request.json();
+    const normalizedEmail = String(email || '').trim().toLowerCase();
 
-    if (!normalizedPhone || !password) {
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail) || !password) {
       return NextResponse.json(
-        { success: false, message: 'সঠিক ফোন নম্বর এবং পাসওয়ার্ড প্রদান করুন' },
+        { success: false, message: 'সঠিক ইমেইল এবং পাসওয়ার্ড প্রদান করুন' },
         { status: 400 }
       );
     }
 
     const supabase = createClient(await cookies());
     const { data, error } = await supabase.auth.signInWithPassword({
-      phone: normalizedPhone,
+      email: normalizedEmail,
       password,
     });
 
     if (error || !data.user) {
       return NextResponse.json(
-        { success: false, message: 'ফোন নম্বর অথবা পাসওয়ার্ড ভুল হয়েছে!' },
+        { success: false, message: 'ইমেইল অথবা পাসওয়ার্ড ভুল হয়েছে!' },
         { status: 401 }
       );
     }

@@ -113,15 +113,31 @@ export async function GET(request) {
     const personals = new Map(personalRows);
     const nominees = new Map(nomineeRows);
     const banks = new Map((bankResult.data || []).map(row => [row.user_id, toClientBank(row)]));
-    const notices = (noticesResult.data || []).map(notice => ({
-      id: notice.id,
-      userId: notice.user_id,
-      loanId: notice.loan_id,
-      title: notice.title,
-      message: notice.message,
-      status: notice.status,
-      createdAt: notice.created_at,
-    }));
+    const notices = (noticesResult.data || []).map(notice => {
+      let amountToPay = 0;
+      let description = notice.message || '';
+      try {
+        const parsed = JSON.parse(notice.message);
+        if (parsed && typeof parsed === 'object') {
+          if (parsed.amountToPay !== undefined) amountToPay = Number(parsed.amountToPay);
+          if (parsed.description !== undefined) description = parsed.description;
+        }
+      } catch {
+        description = notice.message || '';
+      }
+      return {
+        id: notice.id,
+        userId: notice.user_id,
+        loanId: notice.loan_id,
+        title: notice.title,
+        reason: notice.title,
+        amountToPay,
+        description,
+        message: description,
+        status: notice.status,
+        createdAt: notice.created_at,
+      };
+    });
 
     const fullLoans = (loanRows || []).map(row => {
       const loan = toClientLoan(row);

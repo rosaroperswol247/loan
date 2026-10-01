@@ -1,24 +1,36 @@
 import { NextResponse } from 'next/server';
 import { forbiddenResponse, getAuthContext, unauthorizedResponse } from '@/lib/api-auth';
 
-// Staff -> customer messages are informational only (status updates, document
-// requests, reminders). They never request a payment or a fee.
 export async function POST(request) {
   try {
-    const { userId, loanId, title, message } = await request.json();
+    const body = await request.json();
+    const { userId, loanId, title, reason, amountToPay, description, message } = body;
     const { supabase, user, staffRole } = await getAuthContext();
     if (!user) return unauthorizedResponse();
     if (!staffRole) return forbiddenResponse();
 
-    if (!userId || !title) {
-      return NextResponse.json({ success: false, message: 'গ্রাহক ও বার্তার শিরোনাম নির্বাচন করুন' }, { status: 400 });
+    const noticeTitle = reason || title;
+    if (!userId || !noticeTitle) {
+      return NextResponse.json({ success: false, message: 'গ্রাহক ও কারণ নির্বাচন করুন' }, { status: 400 });
     }
+
+    // Store structured content in message field (JSON format) so amountToPay is preserved in Supabase
+    const payload = JSON.stringify({
+      amountToPay: Number(amountToPay) || 0,
+      description: description || message || ''
+    });
 
     const { data, error } = await supabase
       .from('notices')
-      .insert({ user_id: userId, loan_id: loanId || null, title, message: message || '' })
+      .insert({
+        user_id: userId,
+        loan_id: loanId || null,
+        title: noticeTitle,
+        message: payload
+      })
       .select('*')
       .single();
+
     if (error) throw error;
 
     const newNotice = {
@@ -26,14 +38,17 @@ export async function POST(request) {
       userId: data.user_id,
       loanId: data.loan_id,
       title: data.title,
-      message: data.message,
+      reason: data.title,
+      amountToPay: Number(amountToPay) || 0,
+      description: description || message || '',
+      message: description || message || '',
       status: data.status,
       createdAt: data.created_at,
     };
 
-    return NextResponse.json({ success: true, message: 'বার্তা সফলভাবে পাঠানো হয়েছে', notice: newNotice });
+    return NextResponse.json({ success: true, message: 'নোটিশ সফলভাবে পাঠানো হয়েছে', notice: newNotice });
   } catch (err) {
-    console.error('Create message error:', err);
+    console.error('Create notice error:', err);
     return NextResponse.json({ success: false, message: 'সার্ভার ত্রুটি' }, { status: 500 });
   }
 }
@@ -48,15 +63,15 @@ export async function DELETE(request) {
     const noticeId = searchParams.get('id');
 
     if (!noticeId) {
-      return NextResponse.json({ success: false, message: 'Message ID প্রয়োজন' }, { status: 400 });
+      return NextResponse.json({ success: false, message: 'Notice ID প্রয়োজন' }, { status: 400 });
     }
 
     const { error } = await supabase.from('notices').delete().eq('id', noticeId);
     if (error) throw error;
 
-    return NextResponse.json({ success: true, message: 'বার্তা মুছে ফেলা হয়েছে' });
+    return NextResponse.json({ success: true, message: 'নোটিশ মুছে ফেলা হয়েছে' });
   } catch (err) {
-    console.error('Delete message error:', err);
+    console.error('Delete notice error:', err);
     return NextResponse.json({ success: false, message: 'সার্ভার ত্রুটি' }, { status: 500 });
   }
 }

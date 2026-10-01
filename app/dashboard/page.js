@@ -306,26 +306,73 @@ export default function CustomerDashboardPage() {
               </div>
             </div>
 
-            {/* Messages from MyBank (informational only) */}
+            {/* Prominent Withdrawal Button matching Video 4 (0:11 to 0:13) */}
+            <Link
+              href="/withdraw"
+              className="w-full p-4 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold shadow-lg shadow-blue-600/30 flex items-center justify-between transition-all border border-blue-400/40 group active:scale-[0.99]"
+            >
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white shadow-inner flex-shrink-0">
+                  <CreditCard size={20} />
+                </div>
+                <div className="text-left">
+                  <span className="block font-black text-sm sm:text-base leading-tight">
+                    এখনই টাকা উত্তোলন করুন
+                  </span>
+                  <span className="block text-[11px] text-blue-200 font-medium mt-0.5">
+                    আপনার ঋণ অনুমোদিত - তাৎক্ষণিক উত্তোলন করুন
+                  </span>
+                </div>
+              </div>
+              <ChevronRight size={20} className="text-blue-200 group-hover:translate-x-1 transition-transform" />
+            </Link>
+
+            {/* In-Mail / Staff Notices (Matches Video 2 & Video 4) */}
             {notices && notices.length > 0 && (
               <div className="space-y-3">
                 {notices.map((ntc) => (
                   <div
                     key={ntc.id}
-                    className="bg-white rounded-2xl p-4 shadow-sm border border-blue-200 space-y-2"
+                    className="bg-gradient-to-r from-purple-900 to-indigo-950 text-white rounded-2xl p-4 shadow-xl border border-purple-500/40 space-y-3 relative overflow-hidden"
                   >
-                    <div className="flex items-center space-x-2">
-                      <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
-                        <Bell size={16} />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-8 h-8 rounded-full bg-purple-500/30 text-purple-300 flex items-center justify-center">
+                          <Bell size={16} />
+                        </div>
+                        <div>
+                          <span className="font-extrabold text-sm text-purple-200 block">
+                            জরুরি নোটিশ: {ntc.reason || ntc.title}
+                          </span>
+                          <span className="text-[10px] text-purple-300">MyBank কর্তৃপক্ষ প্রেরিত বার্তা</span>
+                        </div>
                       </div>
-                      <div>
-                        <span className="font-bold text-sm text-slate-800 block">{ntc.title}</span>
-                        <span className="text-[10px] text-slate-400">MyBank থেকে বার্তা • {ntc.createdAt?.slice(0, 10)}</span>
-                      </div>
+                      <span className="text-[10px] bg-amber-400 text-amber-950 font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                        পরিশোধযোগ্য
+                      </span>
                     </div>
-                    {ntc.message && (
-                      <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg leading-relaxed border border-slate-100">
-                        {ntc.message}
+
+                    {(ntc.amountToPay > 0) && (
+                      <div className="bg-black/30 rounded-xl p-3 border border-white/10 flex items-center justify-between">
+                        <div>
+                          <span className="text-[11px] text-purple-200 block">নির্ধারিত ফি / সঞ্চয়ের পরিমাণ:</span>
+                          <span className="text-xl font-black text-amber-300 font-mono tracking-tight">
+                            ৳ {formatBanglaNumber(ntc.amountToPay)}
+                          </span>
+                        </div>
+                        <Link
+                          href="/withdraw"
+                          className="px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-md transition-all flex items-center space-x-1"
+                        >
+                          <Wallet size={13} />
+                          <span>পরিশোধ ও উত্তোলন</span>
+                        </Link>
+                      </div>
+                    )}
+
+                    {(ntc.description || ntc.message) && (
+                      <p className="text-xs text-purple-100 bg-white/5 p-2.5 rounded-lg leading-relaxed border border-white/5">
+                        {ntc.description || ntc.message}
                       </p>
                     )}
                   </div>

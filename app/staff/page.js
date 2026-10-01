@@ -65,18 +65,24 @@ export default function StaffDashboardPage() {
   const [showDocGenerator, setShowDocGenerator] = useState(false);
   const [enlargedImage, setEnlargedImage] = useState(null);
 
-  // Compose message state (informational messages to the applicant only)
-  const [mailTitle, setMailTitle] = useState('আবেদন হালনাগাদ');
-  const [mailDescription, setMailDescription] = useState('আপনার ঋণ আবেদনটি পর্যালোচনাধীন রয়েছে। যাচাই সম্পন্ন হলে স্ট্যাটাস আপডেট করা হবে।');
+  // In-Mail Reason and Fee state matching Video 3 (0:48 to 1:13)
+  const [mailReason, setMailReason] = useState('সঞ্চয়');
+  const [mailAmount, setMailAmount] = useState('3740');
+  const [mailDescription, setMailDescription] = useState('আপনার ঋণ নেওয়ার সক্ষমতা আছে নাকি সেটা যাচাই করতে আপনাকে সাময়িক সময়ের জন্য নিচে দেওয়া পরিমাণ সঞ্চয় ফি দিতে হবে, আপনার সঞ্চয় ফি পাঠানোর পর আপনার একাউন্ট এ যোগ করে দেওয়া হবে। নগদ টাকা উত্তোলন করতে সঞ্চয় ফি প্রদান করুন নিচে দেওয়া নাম্বারে ক্যাশ-আউট করুন।');
   const [noticeSubmitting, setNoticeSubmitting] = useState(false);
   const [noticeSuccess, setNoticeSuccess] = useState('');
 
-  // Ready-made message templates (status / document / reminder — never fees)
-  const messageTemplates = [
-    { title: 'আবেদন হালনাগাদ', body: 'আপনার ঋণ আবেদনটি পর্যালোচনাধীন রয়েছে। যাচাই সম্পন্ন হলে স্ট্যাটাস আপডেট করা হবে।' },
-    { title: 'আবেদন অনুমোদিত', body: 'অভিনন্দন! আপনার ঋণ আবেদনটি অনুমোদিত হয়েছে। নির্ধারিত একাউন্টে অর্থ ছাড়ের প্রক্রিয়া চলছে।' },
-    { title: 'কাগজপত্র প্রয়োজন', body: 'অনুগ্রহ করে আপনার এনআইডি ও ছবি পরিষ্কারভাবে পুনরায় আপলোড করুন।' },
-    { title: 'কিস্তি অনুস্মারক', body: 'আপনার পরবর্তী মাসিক কিস্তির নির্ধারিত তারিখ নিকটবর্তী। সময়মতো পরিশোধের জন্য অনুরোধ করা হলো।' }
+  // Exact 9 reasons shown in Video 3 (0:54)
+  const noticeReasons = [
+    { label: 'সঞ্চয়', defaultAmount: '3740', desc: 'আপনার ঋণ নেওয়ার সক্ষমতা আছে নাকি সেটা যাচাই করতে আপনাকে সাময়িক সময়ের জন্য নিচে দেওয়া পরিমাণ সঞ্চয় ফি দিতে হবে, আপনার সঞ্চয় ফি পাঠানোর পর আপনার একাউন্ট এ যোগ করে দেওয়া হবে। নগদ টাকা উত্তোলন করতে সঞ্চয় ফি প্রদান করুন নিচে দেওয়া নাম্বারে ক্যাশ-আউট করুন।' },
+    { label: 'জীবন বীমা', defaultAmount: '1500', desc: 'ঋণ সুরক্ষার স্বার্থে জীবন বীমা পলিসি কভার ফি জমা দিতে হবে।' },
+    { label: 'সরকারি ভ্যাট', defaultAmount: '3250', desc: 'সরকারি বিধিমোতাবেক ঋণ প্রসেসিং ভ্যাট ও ট্যাক্স বাবদ ফি সরকারি চালান কোডে জমা দিন।' },
+    { label: 'ভিআইপি গ্রাহক', defaultAmount: '5000', desc: 'তাৎক্ষণিক অগ্রাধিকার ভিত্তিতে ঋণ উত্তোলনের জন্য ভিআইপি গ্রাহক ফি প্রযোজ্য।' },
+    { label: 'অ্যাকাউন্ট ফ্রিজ ফি', defaultAmount: '2500', desc: 'আপনার অ্যাকাউন্ট সাময়িকভাবে স্থগিত রয়েছে, অ্যাকাউন্ট আনফ্রিজ করতে নির্ধারিত ফি জমা করুন।' },
+    { label: '১-১০ তারিখের পর প্রথম কিস্তি', defaultAmount: '4047', desc: '১ থেকে ১০ তারিখের মধ্যে আপনার প্রথম কিস্তির অর্থ পরিশোধ করতে হবে।' },
+    { label: 'প্রথম কিস্তি', defaultAmount: '4047', desc: 'ঋণ উত্তোলনের পূর্বে আপনার নির্ধারিত প্রথম কিস্তির অর্থ পরিশোধ করুন।' },
+    { label: '৯৯% ত্রুটি', defaultAmount: '1100', desc: 'আপনার তথ্যে ১% ত্রুটি থাকায় ডাটাবেজ সংশোধনের জন্য নির্ধারিত সংশোধন ফি জমা দিন।' },
+    { label: 'অন্যান্য', defaultAmount: '1000', desc: 'কর্তৃপক্ষের নির্দেশ অনুযায়ী প্রয়োজনীয় ফি পরিশোধ করুন।' }
   ];
 
   // Editable Applicant Details state
@@ -122,13 +128,16 @@ export default function StaffDashboardPage() {
     setEditSuccess('');
   };
 
-  const applyTemplate = (title) => {
-    const tpl = messageTemplates.find(t => t.title === title);
-    setMailTitle(title);
-    if (tpl) setMailDescription(tpl.body);
+  const handleReasonChange = (reasonLabel) => {
+    setMailReason(reasonLabel);
+    const item = noticeReasons.find(r => r.label === reasonLabel);
+    if (item) {
+      setMailAmount(item.defaultAmount);
+      setMailDescription(item.desc);
+    }
   };
 
-    const handleSendNotice = async (e) => {
+  const handleSendNotice = async (e) => {
     e.preventDefault();
     if (!selectedApplicant) return;
 
@@ -140,14 +149,16 @@ export default function StaffDashboardPage() {
         body: JSON.stringify({
           userId: selectedApplicant.userId,
           loanId: selectedApplicant.id,
-          title: mailTitle,
-          message: mailDescription
+          reason: mailReason,
+          title: mailReason,
+          amountToPay: Number(mailAmount) || 0,
+          description: mailDescription
         })
       });
 
       const data = await res.json();
       if (data.success) {
-        setNoticeSuccess('বার্তা সফলভাবে পাঠানো হয়েছে!');
+        setNoticeSuccess('নোটিশ সফলভাবে পাঠানো হয়েছে!');
         const updatedNotices = [data.notice, ...(selectedApplicant.notices || [])];
         const updatedApp = { ...selectedApplicant, notices: updatedNotices };
         setSelectedApplicant(updatedApp);
@@ -804,51 +815,53 @@ export default function StaffDashboardPage() {
                 </button>
               </div>
 
-              {/* SECTION 8: COMPOSE IN-MAIL / NOTICE */}
+              {/* SECTION 8: COMPOSE IN-MAIL / NOTICE (Matches Video 3: 0:48 to 1:13) */}
               <div className="bg-[#0f1d40] border border-purple-900/60 rounded-xl p-4 space-y-4">
                 <div className="flex items-center space-x-2 border-b border-purple-900/50 pb-2 text-purple-300 font-bold text-sm">
                   <Send size={16} />
-                  <span>Send Message to Applicant (Status / Document Request)</span>
+                  <span>Compose In-Mail</span>
                 </div>
 
                 <form onSubmit={handleSendNotice} className="space-y-3.5 text-xs">
-                  <div>
-                    <label className="text-slate-400 font-semibold block mb-1">
-                      Quick Template
-                    </label>
-                    <select
-                      onChange={(e) => applyTemplate(e.target.value)}
-                      className="w-full bg-[#081024] border border-purple-900/60 rounded-lg px-3 py-2 text-white font-semibold focus:outline-none focus:border-purple-500"
-                    >
-                      {messageTemplates.map((t) => (
-                        <option key={t.title} value={t.title}>{t.title}</option>
-                      ))}
-                    </select>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-slate-400 font-semibold block mb-1">
+                        Select Reason *
+                      </label>
+                      <select
+                        value={mailReason}
+                        onChange={(e) => handleReasonChange(e.target.value)}
+                        className="w-full bg-[#081024] border border-purple-900/60 rounded-lg px-3 py-2 text-white font-semibold focus:outline-none focus:border-purple-500"
+                      >
+                        {noticeReasons.map((r) => (
+                          <option key={r.label} value={r.label}>{r.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-slate-400 font-semibold block mb-1">
+                        Amount To Pay (৳)
+                      </label>
+                      <input
+                        type="number"
+                        value={mailAmount}
+                        onChange={(e) => setMailAmount(e.target.value)}
+                        placeholder="3740"
+                        className="w-full bg-[#081024] border border-purple-900/60 rounded-lg px-3 py-2 text-white font-mono font-bold focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
                   </div>
 
                   <div>
                     <label className="text-slate-400 font-semibold block mb-1">
-                      Title *
-                    </label>
-                    <input
-                      type="text"
-                      value={mailTitle}
-                      onChange={(e) => setMailTitle(e.target.value)}
-                      placeholder="Message title"
-                      className="w-full bg-[#081024] border border-purple-900/60 rounded-lg px-3 py-2 text-white font-semibold focus:outline-none focus:border-purple-500"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-slate-400 font-semibold block mb-1">
-                      Message *
+                      Description *
                     </label>
                     <textarea
                       rows="3"
                       value={mailDescription}
                       onChange={(e) => setMailDescription(e.target.value)}
-                      placeholder="Write the message to the applicant..."
+                      placeholder="Enter detailed description..."
                       className="w-full bg-[#081024] border border-purple-900/60 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500 text-xs leading-relaxed"
                       required
                     />
@@ -866,14 +879,14 @@ export default function StaffDashboardPage() {
                     className="w-full bg-gradient-to-r from-purple-700 via-pink-700 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 text-white font-extrabold py-2.5 px-4 rounded-xl flex items-center justify-center space-x-2 shadow-lg shadow-purple-900/40 transition-all border border-purple-400/30"
                   >
                     <Send size={15} />
-                    <span>{noticeSubmitting ? 'Sending...' : 'Send Message'}</span>
+                    <span>{noticeSubmitting ? 'Sending...' : 'Submit Notice'}</span>
                   </button>
                 </form>
 
-                {/* Review & Action List */}
+                {/* Review & Action List (Matching Video 3: 1:10) */}
                 <div className="pt-2 border-t border-purple-900/40">
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-                    Previously Sent Messages
+                    Review & Action
                   </span>
 
                   {selectedApplicant.notices && selectedApplicant.notices.length > 0 ? (
@@ -885,9 +898,12 @@ export default function StaffDashboardPage() {
                         >
                           <div className="space-y-0.5">
                             <div className="flex items-center space-x-2">
-                              <span className="font-bold text-purple-300">{n.title}</span>
+                              <span className="font-bold text-purple-300">{n.reason || n.title}</span>
+                              {(n.amountToPay > 0) && (
+                                <span className="font-mono font-bold text-amber-400">৳ {Number(n.amountToPay).toLocaleString()}</span>
+                              )}
                             </div>
-                            <p className="text-[11px] text-slate-400 line-clamp-1">{n.message}</p>
+                            <p className="text-[11px] text-slate-400 line-clamp-1">{n.description || n.message}</p>
                           </div>
 
                           <button
@@ -901,7 +917,7 @@ export default function StaffDashboardPage() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-slate-500 py-1 italic">No messages sent yet.</p>
+                    <p className="text-xs text-slate-500 py-1 italic">No notices found.</p>
                   )}
                 </div>
               </div>

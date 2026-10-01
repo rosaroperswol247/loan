@@ -15,15 +15,35 @@ export async function GET(request) {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    const notices = (data || []).map(notice => ({
-      id: notice.id,
-      userId: notice.user_id,
-      loanId: notice.loan_id,
-      title: notice.title,
-      message: notice.message,
-      status: notice.status,
-      createdAt: notice.created_at,
-    }));
+
+    const notices = (data || []).map(notice => {
+      let amountToPay = 0;
+      let description = notice.message || '';
+
+      try {
+        const parsed = JSON.parse(notice.message);
+        if (parsed && typeof parsed === 'object') {
+          if (parsed.amountToPay !== undefined) amountToPay = Number(parsed.amountToPay);
+          if (parsed.description !== undefined) description = parsed.description;
+        }
+      } catch {
+        // Plain text fallback
+        description = notice.message || '';
+      }
+
+      return {
+        id: notice.id,
+        userId: notice.user_id,
+        loanId: notice.loan_id,
+        title: notice.title,
+        reason: notice.title,
+        amountToPay,
+        description,
+        message: description,
+        status: notice.status,
+        createdAt: notice.created_at,
+      };
+    });
 
     return NextResponse.json({ success: true, notices });
   } catch (error) {

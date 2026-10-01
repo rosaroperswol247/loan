@@ -63,3 +63,4 @@ npm run dev
 ### 🚀 লাইভ ডেপ্লয়
 
 Supabase migration এবং phone/password Auth সেটআপ শেষ করে Vercel-এ `NEXT_PUBLIC_SUPABASE_URL` ও `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` যোগ করুন, তারপর GitHub repository deploy করুন। `data/db.json`-এর পুরোনো স্থানীয় তথ্য স্বয়ংক্রিয়ভাবে স্থানান্তরিত হবে না; নিরাপদভাবে নতুন অ্যাকাউন্ট তৈরি করুন এবং বাস্তব গ্রাহকের তথ্য ব্যবহারের আগে access policies পরীক্ষা করুন।
+

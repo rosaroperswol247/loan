@@ -3,52 +3,37 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Phone, KeyRound, LogIn, UserPlus, ShieldCheck, Landmark } from 'lucide-react';
+import { Phone, Lock, Eye, EyeOff, LogIn, UserPlus, ShieldCheck, Landmark } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
   const [phone, setPhone] = useState('');
-  const [token, setToken] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
-    setNotice('');
 
-    if (!phone) {
-      setError('অনুগ্রহ করে ফোন নম্বর দিন');
-      return;
-    }
-    if (otpSent && !/^\d{6}$/.test(token)) {
-      setError('৬ সংখ্যার OTP কোড দিন');
+    if (!phone.trim() || !password) {
+      setError('ফোন নম্বর এবং পাসওয়ার্ড দিন');
       return;
     }
 
     setLoading(true);
     try {
-      const res = await fetch(otpSent ? '/api/auth/verify' : '/api/auth/login', {
+      const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(otpSent
-          ? { phone: phone.trim(), token }
-          : { phone: phone.trim() })
+        body: JSON.stringify({ phone: phone.trim(), password })
       });
 
       const data = await res.json();
 
       if (!res.ok || !data.success) {
         setError(data.message || 'লগইন করা যায়নি');
-        setLoading(false);
-        return;
-      }
-
-      if (!otpSent) {
-        setOtpSent(true);
-        setNotice(data.message || 'আপনার ফোনে পাঠানো OTP কোডটি লিখুন');
         setLoading(false);
         return;
       }
@@ -87,12 +72,6 @@ export default function LoginPage() {
           </div>
         )}
 
-        {notice && (
-          <div className="mb-4 p-3 bg-emerald-50 border-l-4 border-emerald-500 rounded text-emerald-700 text-xs font-medium">
-            {notice}
-          </div>
-        )}
-
         {/* Login Form */}
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
@@ -107,12 +86,7 @@ export default function LoginPage() {
                 type="tel"
                 autoComplete="tel"
                 value={phone}
-                onChange={(e) => {
-                  setPhone(e.target.value);
-                  setOtpSent(false);
-                  setToken('');
-                  setNotice('');
-                }}
+                onChange={(e) => setPhone(e.target.value)}
                 placeholder="আপনার ফোন নম্বর লিখুন"
                 className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-mono"
                 required
@@ -120,27 +94,29 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {otpSent && (
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">OTP কোড</label>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">পাসওয়ার্ড</label>
             <div className="relative">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
-                <KeyRound size={16} />
+                <Lock size={16} />
               </span>
               <input
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                value={token}
-                onChange={(e) => setToken(e.target.value.replace(/\D/g, ''))}
-                placeholder="৬ সংখ্যার OTP"
-                className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-mono"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="আপনার পাসওয়ার্ড লিখুন"
+                className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-mono"
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
           </div>
-          )}
 
           <button
             type="submit"
@@ -152,7 +128,7 @@ export default function LoginPage() {
             ) : (
               <>
                 <LogIn size={16} />
-                <span>{otpSent ? 'OTP যাচাই করুন' : 'OTP পাঠান'}</span>
+                <span>সাইন ইন করুন</span>
               </>
             )}
           </button>

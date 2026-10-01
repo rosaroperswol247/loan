@@ -111,7 +111,7 @@ The system is a full-stack web application built with **Next.js 14**, **React 18
 ### 2.2 System Features Summary
 | Feature Group | Key Capabilities |
 | :--- | :--- |
-| **Authentication** | Supabase phone OTP login, cookie sessions, and database-backed staff roles. |
+| **Authentication** | Supabase phone/password login, cookie sessions, and database-backed staff roles. |
 | **KYC Capture** | Personal information, blood group, NID image attachments, applicant photo, digital signature pad. |
 | **Nominee & Bank** | Nominee relationship binding, optional nominee attachments, payout method selection (bKash/Nagad/Rocket/Bank). |
 | **Dynamic Dashboard** | Automatic transformation from application form to active loan dashboard after submission. |
@@ -141,7 +141,7 @@ The system is a full-stack web application built with **Next.js 14**, **React 18
 - Identity images are uploaded to a private Storage bucket and served using short-lived signed URLs.
 
 ### 2.6 Assumptions & Dependencies
-- A Supabase project with the Phone provider, a configured SMS service, and at least one explicitly provisioned staff account is required.
+- A Supabase project with the Phone provider and at least one explicitly provisioned staff account is required. Phone confirmation is disabled, so phone ownership is not verified.
 - The host has network access to Google Fonts (or a local fallback font is acceptable).
 
 ---
@@ -283,7 +283,7 @@ erDiagram
 
 ### 5.1 Module 1: Authentication & Protected Access Control
 - **FR-1.1:** The system SHALL validate phone numbers and prohibit duplicate phone registrations.
-- **FR-1.2:** The system SHALL provide a six-digit OTP entry step after requesting an SMS code.
+- **FR-1.2:** The system SHALL require a password of at least 10 characters for registration and login.
 - **FR-1.3:** Staff routes SHALL be isolated behind a credential challenge at `/staff/login`.
 - **FR-1.4:** Unauthenticated visits to `/staff` SHALL redirect to `/staff/login`.
 - **FR-1.5:** Staff accounts SHALL be explicitly granted a role in `staff_members`. Valid staff credentials SHALL grant access to `/staff` and persist a session in `localStorage.staff_session`.
@@ -371,7 +371,7 @@ All documents are the lender's own, on MyBank branding. No document is attribute
 ### 7.2 Security & Access Controls
 - Protected APIs SHALL derive identity from a verified Supabase Auth session, never from a client-supplied user ID.
 - Database tables and private document storage SHALL enforce Row Level Security policies.
-- Authentication SHALL use Supabase Phone OTP and transport SHALL use HTTPS; the application SHALL not store or expose account passwords.
+- Authentication SHALL use Supabase Phone/password and transport SHALL use HTTPS; the application SHALL not store or expose account passwords.
 - Staff privileges SHALL be granted through the server-managed `staff_members` table, never browser-supplied metadata.
 
 ### 7.3 Reliability & Data Availability
@@ -388,8 +388,8 @@ All documents are the lender's own, on MyBank branding. No document is attribute
 
 | ID | Test Scenario | Expected Outcome | Status |
 | :--- | :--- | :--- | :--- |
-| **TC-01** | User registers with a new phone | SMS OTP verification creates a session and redirects to `/personal-info`. | PASS |
-| **TC-02** | Register with a duplicate phone | Registration is rejected or routes through existing-account login. | PASS |
+| **TC-01** | User registers with a new phone | Account is created without an OTP and redirects to `/personal-info`. | PASS |
+| **TC-02** | Register with a duplicate phone | Registration is rejected with an account-already-registered message. | PASS |
 | **TC-03** | User draws signature and submits | Canvas exports Base64 PNG; persisted. | PASS |
 | **TC-04** | User submits a loan application | Form transitions into the active dashboard with three metric cards. | PASS |
 | **TC-05** | Unauthorized visit to `/staff` | Redirect to `/staff/login`. | PASS |
@@ -419,4 +419,4 @@ npm run dev
 - **Staff Dashboard:** `http://localhost:3000/staff`
 
 ### Supabase Configuration
-Copy `.env.example` to `.env.local`, fill in the Supabase URL and publishable key, apply the SQL migrations, configure the Phone provider and Twilio SMS, and provision staff as described in [`supabase/SETUP.md`](supabase/SETUP.md). There is no default admin account.
+Copy `.env.example` to `.env.local`, fill in the Supabase URL and publishable key, apply the SQL migrations, configure phone/password authentication, and provision staff as described in [`supabase/SETUP.md`](supabase/SETUP.md). There is no default admin account.

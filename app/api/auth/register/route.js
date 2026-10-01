@@ -1,31 +1,30 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
+import { getPublicUser } from '@/lib/api-auth';
 import { normalizePhone } from '@/lib/phone';
 
 export async function POST(request) {
   try {
-    const { fullName, phone } = await request.json();
+    const { fullName, phone, password } = await request.json();
     const normalizedPhone = normalizePhone(phone);
 
-    if (!fullName?.trim() || !normalizedPhone) {
+    if (!fullName?.trim() || !normalizedPhone || !password || password.length < 10) {
       return NextResponse.json(
-        { success: false, message: 'নাম এবং সঠিক ফোন নম্বর দিন' },
+        { success: false, message: 'নাম, সঠিক ফোন নম্বর এবং কমপক্ষে ১০ অক্ষরের পাসওয়ার্ড দিন' },
         { status: 400 }
       );
     }
 
     const supabase = createClient(await cookies());
-    const { error } = await supabase.auth.signInWithOtp({
+    const { data, error } = await supabase.auth.signUp({
       phone: normalizedPhone,
-      options: {
-        shouldCreateUser: true,
-        data: { full_name: fullName.trim() },
-      },
+      password,
+      options: { data: { full_name: fullName.trim() } },
     });
 
     if (error) {
-      console.error('Supabase phone signup failed', {
+      console.error('Supabase phone/password signup failed', {
         status: error.status,
         code: error.code,
         message: error.message,
@@ -33,17 +32,21 @@ export async function POST(request) {
       return NextResponse.json(
         {
           success: false,
-          message: 'SMS কোড পাঠানো যায়নি। Supabase Phone provider এবং SMS provider সেটিংস যাচাই করুন।',
+          message: 'নিবন্ধন করা যায়নি। Supabase Phone provider এবং confirmation সেটিংস যাচাই করুন।',
         },
         { status: 400 }
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      phone: normalizedPhone,
-      message: 'আপনার ফোনে পাঠানো OTP কোডটি লিখুন',
-    });
+    if (!data.user || !data.session) {
+      return NextResponse.json(
+        { success: false, message: 'Supabase-এ Phone confirmation বন্ধ করুন; এই সাইটে OTP ব্যবহার করা হয় না।' },
+        { status: 400 }
+      );
+    }
+
+    const user = await getPublicUser(supabase, data.user);
+    return NextResponse.json({ success: true, user });
   } catch (error) {
     console.error('Register error:', error);
     return NextResponse.json(

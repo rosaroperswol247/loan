@@ -14,15 +14,15 @@ The migrations create the tables, Row Level Security policies, profile/loan trig
 
 Do not make the document bucket public. It holds national ID images, photos, and signatures.
 
-## 2. Enable phone OTP authentication
+## 2. Enable phone/password authentication
 
-In **Authentication → Sign In / Providers → Phone**, enable the Phone provider and phone confirmations. Disable the Email provider for phone-only authentication. Select **Twilio** and enter the Account SID, Auth Token, and Message Service SID from the Twilio Console. These credentials are required for Supabase to send OTP messages; never commit or share them. Set the SMS template to include Supabase's OTP code variable.
+In **Authentication → Sign In / Providers → Phone**, enable the Phone provider and turn **phone confirmations off**. Disable the Email provider for phone-only authentication. Registration and login use a phone number and password; no OTP is sent. If Supabase refuses to enable Phone without an SMS provider, its native phone/password flow still requires SMS-provider configuration even with confirmation disabled.
 
-Email sign-in is not used by the app. The OTP is verified through the server API, so the `/auth/callback` URL is not used for phone login.
+Without phone confirmation, users can register using numbers they do not own. Do not use this configuration for real applicant identity or banking data unless you accept that risk and have another verification control.
 
 ## 3. Create the first staff account
 
-Register the staff account at the site with its phone number and verify the SMS OTP. Then run this query in SQL Editor, replacing the number with the staff account's E.164 phone number (for Bangladesh, for example, `+8801701234567`). Do not use a short numeric PIN for an administrator account; staff can access applicant identity and banking information.
+Register the staff account at the site with its phone number and a strong, unique password. Then run this query in SQL Editor, replacing the number with the staff account's E.164 phone number (for Bangladesh, for example, `+8801701234567`). Do not use a short numeric PIN for an administrator account; staff can access applicant identity and banking information.
 
 ```sql
 insert into public.staff_members (user_id, role)

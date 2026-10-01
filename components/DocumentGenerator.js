@@ -24,13 +24,17 @@ export default function DocumentGenerator({ applicantData, onClose }) {
 
   const amount = Number(applicantData?.amount || 50000);
   const tenure = Number(applicantData?.tenureMonths || 12);
-  const interestRate = Number(applicantData?.interestRate || 0.024);
+  const rawRate = applicantData?.interestRate !== undefined ? Number(applicantData.interestRate) : 0.024;
+  const initialRatePercent = rawRate <= 1 ? (rawRate * 100).toFixed(1) : rawRate.toString();
+  const interestRate = Number(initialRatePercent) / 100;
   const computedTotal = applicantData?.totalRepayment
     ? Number(applicantData.totalRepayment)
     : Math.round(amount + amount * (tenure / 12) * interestRate);
   const computedEmi = applicantData?.monthlyEmi
     ? Number(applicantData.monthlyEmi)
     : Number((computedTotal / tenure).toFixed(2));
+
+  const userSignature = applicantData?.personal?.signature || applicantData?.signature || applicantData?.user?.signature || '';
 
   // Dynamic document fields initialized with applicant data
   const [docFields, setDocFields] = useState({
@@ -41,9 +45,11 @@ export default function DocumentGenerator({ applicantData, onClose }) {
     address: applicantData?.personal?.presentAddress || 'Kishorganj, Dhaka',
     loanAmount: amount,
     tenureMonths: tenure,
+    interestRate: initialRatePercent, // Changable interest rate (%)
     monthlyEmi: computedEmi,
     totalRepayment: computedTotal,
     processingFees: 1500, // Processing Fee specifically requested in Video 3!
+    signatureUrl: userSignature, // Real applicant signature
     officerName: 'Md Hannan Mia',
     date: todayStr,
     receiptNumber: 'AFB-0058',
@@ -56,6 +62,51 @@ export default function DocumentGenerator({ applicantData, onClose }) {
   });
 
   const [generated, setGenerated] = useState(true);
+
+  const handleInterestRateChange = (newRate) => {
+    const rateNum = parseFloat(newRate);
+    const loan = Number(docFields.loanAmount) || 0;
+    const tenure = Number(docFields.tenureMonths) || 12;
+    if (!isNaN(rateNum) && loan > 0 && tenure > 0) {
+      const annualDecimal = rateNum / 100;
+      const total = Math.round(loan + loan * (tenure / 12) * annualDecimal);
+      const emi = Number((total / tenure).toFixed(2));
+      setDocFields(prev => ({
+        ...prev,
+        interestRate: newRate,
+        totalRepayment: total,
+        monthlyEmi: emi
+      }));
+    } else {
+      setDocFields(prev => ({ ...prev, interestRate: newRate }));
+    }
+  };
+
+  const handleLoanOrTenureChange = (field, val) => {
+    const loan = Number(field === 'loanAmount' ? val : docFields.loanAmount) || 0;
+    const tenure = Number(field === 'tenureMonths' ? val : docFields.tenureMonths) || 12;
+    const rateNum = parseFloat(docFields.interestRate) || 2.4;
+    const annualDecimal = rateNum / 100;
+    const total = Math.round(loan + loan * (tenure / 12) * annualDecimal);
+    const emi = tenure > 0 ? Number((total / tenure).toFixed(2)) : 0;
+    setDocFields(prev => ({
+      ...prev,
+      [field]: val,
+      totalRepayment: total,
+      monthlyEmi: emi
+    }));
+  };
+
+  const handleSignatureUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setDocFields(prev => ({ ...prev, signatureUrl: event.target?.result }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   // Exact 9 documents from Video 3 (0:25 to 0:47)
   const docTypes = [
@@ -160,7 +211,7 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                     <input
                       type="number"
                       value={docFields.loanAmount}
-                      onChange={(e) => handleFieldChange('loanAmount', e.target.value)}
+                      onChange={(e) => handleLoanOrTenureChange('loanAmount', e.target.value)}
                       className="w-full bg-[#081024] border border-blue-900/50 rounded-lg px-3 py-2 text-white font-semibold font-mono"
                     />
                   </div>
@@ -169,14 +220,25 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                     <input
                       type="number"
                       value={docFields.tenureMonths}
-                      onChange={(e) => handleFieldChange('tenureMonths', e.target.value)}
+                      onChange={(e) => handleLoanOrTenureChange('tenureMonths', e.target.value)}
                       className="w-full bg-[#081024] border border-blue-900/50 rounded-lg px-3 py-2 text-white font-semibold font-mono"
                     />
                   </div>
                 </div>
 
-                {/* Processing Fee specifically highlighted in Video 3 (0:13 to 0:17) */}
+                {/* Interest Rate & Processing Fee */}
                 <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-cyan-400 font-bold block mb-1">Interest Rate (%) *</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={docFields.interestRate}
+                      onChange={(e) => handleInterestRateChange(e.target.value)}
+                      placeholder="2.4"
+                      className="w-full bg-[#081024] border border-cyan-500/60 rounded-lg px-3 py-2 text-cyan-300 font-bold font-mono focus:outline-none focus:border-cyan-400"
+                    />
+                  </div>
                   <div>
                     <label className="text-amber-400 font-bold block mb-1">Processing Fees (৳) *</label>
                     <input
@@ -186,6 +248,9 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                       className="w-full bg-[#081024] border border-amber-500/60 rounded-lg px-3 py-2 text-amber-300 font-bold font-mono focus:outline-none focus:border-amber-400"
                     />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-slate-400 font-medium block mb-1">Monthly EMI (৳)</label>
                     <input
@@ -195,6 +260,53 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                       className="w-full bg-[#081024] border border-blue-900/50 rounded-lg px-3 py-2 text-white font-mono"
                     />
                   </div>
+                  <div>
+                    <label className="text-slate-400 font-medium block mb-1">Total Repayment (৳)</label>
+                    <input
+                      type="number"
+                      value={docFields.totalRepayment}
+                      onChange={(e) => handleFieldChange('totalRepayment', e.target.value)}
+                      className="w-full bg-[#081024] border border-blue-900/50 rounded-lg px-3 py-2 text-white font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* User Signature Card & Uploader in Editor */}
+                <div className="bg-[#081024] border border-blue-900/60 rounded-lg p-2.5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-slate-300 font-bold text-[11px] block">
+                      Applicant Signature (গ্রাহকের স্বাক্ষর)
+                    </label>
+                    {docFields.signatureUrl ? (
+                      <span className="text-[10px] text-emerald-400 bg-emerald-950/80 border border-emerald-500/50 px-2 py-0.5 rounded font-semibold">
+                        ✓ Signature Active
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-amber-400 bg-amber-950/80 border border-amber-500/50 px-2 py-0.5 rounded">
+                        Defaulting to Name
+                      </span>
+                    )}
+                  </div>
+
+                  {docFields.signatureUrl && (
+                    <div className="bg-white rounded-md p-1.5 flex items-center justify-center border border-slate-300 h-12">
+                      <img
+                        src={docFields.signatureUrl}
+                        alt="Applicant Signature Preview"
+                        className="max-h-10 max-w-full object-contain"
+                      />
+                    </div>
+                  )}
+
+                  <label className="cursor-pointer block text-center py-1.5 px-3 bg-blue-950 hover:bg-blue-900 border border-blue-700/60 rounded-lg text-blue-200 text-[11px] font-semibold transition-all">
+                    <span>{docFields.signatureUrl ? 'Change / Upload Signature' : 'Upload Signature'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleSignatureUpload}
+                      className="hidden"
+                    />
+                  </label>
                 </div>
 
                 <div>
@@ -355,7 +467,7 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                       We are pleased to inform you that your application for a personal development credit loan from MyBank Bangladesh Financial Initiative has been officially reviewed and <strong>APPROVED</strong> by the Credit Sanctioning Committee.
                     </p>
 
-                    {/* Breakdown Table with Processing Fee (Requested in Video 3!) */}
+                    {/* Breakdown Table with Processing Fee and Interest Rate */}
                     <table className="w-full border-collapse border border-slate-300 text-[10px] my-2">
                       <tbody>
                         <tr className="bg-slate-50">
@@ -366,15 +478,15 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                         </tr>
                         <tr>
                           <td className="border border-slate-300 p-1.5 font-bold">Monthly Installment (EMI):</td>
-                          <td className="border border-slate-300 p-1.5 font-mono">৳ {docFields.monthlyEmi} BDT</td>
+                          <td className="border border-slate-300 p-1.5 font-mono">৳ {Number(docFields.monthlyEmi).toLocaleString()} BDT</td>
                           <td className="border border-slate-300 p-1.5 font-bold text-amber-900 bg-amber-50">Processing Fee:</td>
                           <td className="border border-slate-300 p-1.5 font-bold font-mono text-amber-900 bg-amber-50">৳ {Number(docFields.processingFees).toLocaleString()} BDT</td>
                         </tr>
                         <tr className="bg-slate-50">
                           <td className="border border-slate-300 p-1.5 font-bold">Total Repayment:</td>
                           <td className="border border-slate-300 p-1.5 font-mono">৳ {Number(docFields.totalRepayment).toLocaleString()} BDT</td>
-                          <td className="border border-slate-300 p-1.5 font-bold">Sanctioning Officer:</td>
-                          <td className="border border-slate-300 p-1.5">{docFields.officerName}</td>
+                          <td className="border border-slate-300 p-1.5 font-bold text-blue-900">Interest Rate:</td>
+                          <td className="border border-slate-300 p-1.5 font-mono font-bold text-blue-700">{docFields.interestRate}% (Annual)</td>
                         </tr>
                       </tbody>
                     </table>
@@ -386,8 +498,16 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                     {/* Signatures and Stamp */}
                     <div className="pt-6 flex items-end justify-between">
                       <div className="text-center">
-                        <div className="w-24 h-10 border-b border-slate-400 mb-1 flex items-center justify-center font-serif italic text-blue-900 font-bold text-sm">
-                          {docFields.name}
+                        <div className="w-28 h-12 border-b border-slate-400 mb-1 flex items-center justify-center">
+                          {docFields.signatureUrl ? (
+                            <img
+                              src={docFields.signatureUrl}
+                              alt="Applicant Signature"
+                              className="max-h-11 max-w-[110px] object-contain"
+                            />
+                          ) : (
+                            <span className="font-serif italic text-blue-900 font-bold text-sm">{docFields.name}</span>
+                          )}
                         </div>
                         <p className="text-[9px] text-slate-500 font-medium">Applicant Signature</p>
                       </div>
@@ -446,7 +566,17 @@ export default function DocumentGenerator({ applicantData, onClose }) {
 
                     <div className="pt-10 flex justify-between items-end">
                       <div className="text-center">
-                        <div className="w-24 border-b border-slate-400 mb-1"></div>
+                        <div className="w-28 h-12 border-b border-slate-400 mb-1 flex items-center justify-center">
+                          {docFields.signatureUrl ? (
+                            <img
+                              src={docFields.signatureUrl}
+                              alt="Depositor Signature"
+                              className="max-h-11 max-w-[110px] object-contain"
+                            />
+                          ) : (
+                            <span className="font-serif italic text-blue-900 font-bold text-xs">{docFields.name}</span>
+                          )}
+                        </div>
                         <span className="text-[10px] text-slate-500">Depositor Signature</span>
                       </div>
                       <div className="text-center">
@@ -502,12 +632,28 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                     </div>
 
                     <div className="pt-6 flex justify-between items-end">
-                      <div className="font-mono text-slate-400 text-[10px] tracking-widest">
+                      <div className="text-center">
+                        <div className="w-24 h-10 border-b border-slate-400 mb-0.5 flex items-center justify-center">
+                          {docFields.signatureUrl ? (
+                            <img
+                              src={docFields.signatureUrl}
+                              alt="Payee Signature"
+                              className="max-h-9 max-w-[95px] object-contain"
+                            />
+                          ) : (
+                            <span className="font-serif italic text-[11px] text-slate-800 font-bold">{docFields.name}</span>
+                          )}
+                        </div>
+                        <span className="text-[8px] font-bold text-slate-500">Payee / Bearer Signature</span>
+                      </div>
+
+                      <div className="font-mono text-slate-400 text-[10px] tracking-widest hidden sm:block">
                         ||| 001 045 0001235 ||| 2026 |||
                       </div>
+
                       <div className="text-center">
                         <div className="w-28 border-b-2 border-slate-700 mb-1 font-serif italic font-bold text-blue-900 text-sm">
-                          Hannan Mia
+                          {docFields.officerName}
                         </div>
                         <span className="text-[9px] font-bold text-slate-600">Authorized Signature</span>
                       </div>
@@ -541,14 +687,22 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                         ২য় পক্ষ: <strong>{docFields.name}</strong>, পিতা: {docFields.fatherName}, মাতা: {docFields.motherName}, এনআইডি: {docFields.nid}, ঠিকানা: {docFields.address} (ঋণ গ্রহীতা)।
                       </p>
                       <p>
-                        উভয় পক্ষ সুস্থ মস্তিষ্কে স্বেচ্ছায় ও সজ্ঞানে এই মর্মে চুক্তিবদ্ধ হইতেছেন যে, ১ম পক্ষ ২য় পক্ষকে <strong>৳ {Number(docFields.loanAmount).toLocaleString()}</strong> টাকা ঋণ প্রদান করিতে সম্মত হইয়াছেন এবং ২য় পক্ষ প্রতি মাসে নির্ধারিত <strong>৳ {docFields.monthlyEmi}</strong> টাকা হারে আগামী {docFields.tenureMonths} মাসের মধ্যে সম্পূর্ণ অর্থ পরিশোধ করিতে বাধ্য থাকিবেন।
+                        উভয় পক্ষ সুস্থ মস্তিষ্কে স্বেচ্ছায় ও সজ্ঞানে এই মর্মে চুক্তিবদ্ধ হইতেছেন যে, ১ম পক্ষ ২য় পক্ষকে <strong>৳ {Number(docFields.loanAmount).toLocaleString()}</strong> টাকা ঋণ বার্ষিক <strong>{docFields.interestRate}%</strong> সুদের হারে প্রদান করিতে সম্মত হইয়াছেন এবং ২য় পক্ষ প্রতি মাসে নির্ধারিত <strong>৳ {Number(docFields.monthlyEmi).toLocaleString()}</strong> টাকা হারে আগামী {docFields.tenureMonths} মাসের মধ্যে সম্পূর্ণ অর্থ (মোট ৳ {Number(docFields.totalRepayment).toLocaleString()}) পরিশোধ করিতে বাধ্য থাকিবেন।
                       </p>
                     </div>
 
                     <div className="pt-8 flex justify-between items-end">
                       <div className="text-center">
-                        <div className="w-24 border-b border-slate-400 mb-1 font-serif italic text-xs text-blue-900 font-bold">
-                          {docFields.name}
+                        <div className="w-28 h-12 border-b border-slate-400 mb-1 flex items-center justify-center">
+                          {docFields.signatureUrl ? (
+                            <img
+                              src={docFields.signatureUrl}
+                              alt="২য় পক্ষ (ঋণ গ্রহীতা) স্বাক্ষর"
+                              className="max-h-11 max-w-[110px] object-contain"
+                            />
+                          ) : (
+                            <span className="font-serif italic text-xs text-blue-900 font-bold">{docFields.name}</span>
+                          )}
                         </div>
                         <span className="text-[9px] font-bold text-slate-600">২য় পক্ষ (ঋণ গ্রহীতা)</span>
                       </div>
@@ -591,13 +745,23 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                       <p><strong>পলিসি হোল্ডারের নাম:</strong> {docFields.name}</p>
                       <p><strong>পিতা/মাতা:</strong> {docFields.fatherName} / {docFields.motherName}</p>
                       <p><strong>এনআইডি:</strong> {docFields.nid}</p>
-                      <p><strong>বীমার মোট পরিমাণ:</strong> ৳ {Number(docFields.loanAmount).toLocaleString()} BDT</p>
+                      <p><strong>বীমার মোট পরিমাণ:</strong> ৳ {Number(docFields.loanAmount).toLocaleString()} BDT (বার্ষিক সুদের হার: {docFields.interestRate}%)</p>
                       <p><strong>মাসিক প্রিমিয়াম:</strong> ৳ ১৫০/- (লোনের সাথে অন্তর্ভুক্ত)</p>
                     </div>
 
                     <div className="pt-8 flex justify-between items-end">
                       <div className="text-center">
-                        <div className="w-24 border-b border-slate-400 mb-1"></div>
+                        <div className="w-28 h-12 border-b border-slate-400 mb-1 flex items-center justify-center">
+                          {docFields.signatureUrl ? (
+                            <img
+                              src={docFields.signatureUrl}
+                              alt="গ্রাহকের স্বাক্ষর"
+                              className="max-h-11 max-w-[110px] object-contain"
+                            />
+                          ) : (
+                            <span className="font-serif italic text-xs text-blue-900 font-bold">{docFields.name}</span>
+                          )}
+                        </div>
                         <span className="text-[9px] text-slate-500">গ্রাহকের স্বাক্ষর</span>
                       </div>
                       <div className="text-center">
@@ -635,8 +799,22 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                       <span className="text-slate-500 text-[10px] block">Transfer Amount:</span>
                       <span className="font-black text-xl text-emerald-600 font-mono">৳ {Number(docFields.loanAmount).toLocaleString()} BDT</span>
                       <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full inline-block mt-1 font-semibold">
-                        STATUS: READY FOR DISBURSEMENT
+                        STATUS: READY FOR DISBURSEMENT (সুদের হার: {docFields.interestRate}% বাৎসরিক)
                       </span>
+                    </div>
+
+                    <div className="pt-4 flex justify-between items-end border-t border-slate-200 mt-2">
+                      <div className="text-center">
+                        <div className="w-24 h-10 border-b border-slate-400 mb-1 flex items-center justify-center">
+                          {docFields.signatureUrl ? (
+                            <img src={docFields.signatureUrl} alt="Receiver Signature" className="max-h-9 max-w-[95px] object-contain" />
+                          ) : (
+                            <span className="font-serif italic text-xs text-slate-800">{docFields.name}</span>
+                          )}
+                        </div>
+                        <span className="text-[9px] text-slate-500">Receiver Signature</span>
+                      </div>
+                      <span className="text-[9px] text-slate-400 font-mono">Dispatched by MyBank Core System</span>
                     </div>
                   </div>
                 )}
@@ -674,7 +852,16 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                     </div>
 
                     <div className="pt-6 flex justify-between items-end">
-                      <span className="text-[9px] text-slate-400">Database Administration Desk</span>
+                      <div className="text-center">
+                        <div className="w-24 h-10 border-b border-slate-400 mb-1 flex items-center justify-center">
+                          {docFields.signatureUrl ? (
+                            <img src={docFields.signatureUrl} alt="Applicant Signature" className="max-h-9 max-w-[95px] object-contain" />
+                          ) : (
+                            <span className="font-serif italic text-xs text-slate-800">{docFields.name}</span>
+                          )}
+                        </div>
+                        <span className="text-[9px] text-slate-500">Applicant Signature</span>
+                      </div>
                       <div className="text-center">
                         <div className="w-24 border-b border-slate-400 mb-1 font-serif italic text-xs">{docFields.officerName}</div>
                         <span className="text-[9px] text-slate-600 font-bold">Verifying Officer</span>
@@ -716,8 +903,14 @@ export default function DocumentGenerator({ applicantData, onClose }) {
 
                     <div className="pt-8 flex justify-between items-end">
                       <div className="text-center">
-                        <div className="w-20 border-b border-slate-400 mb-1 font-serif italic text-xs">Verified</div>
-                        <span className="text-[9px] text-slate-500">Officer In-Charge</span>
+                        <div className="w-20 h-10 border-b border-slate-400 mb-1 flex items-center justify-center">
+                          {docFields.signatureUrl ? (
+                            <img src={docFields.signatureUrl} alt="Applicant Signature" className="max-h-9 max-w-[85px] object-contain" />
+                          ) : (
+                            <span className="font-serif italic text-xs text-slate-800">{docFields.name}</span>
+                          )}
+                        </div>
+                        <span className="text-[9px] text-slate-500">Subject Signature</span>
                       </div>
                       <div className="w-16 h-16 rounded-full border border-indigo-700 text-indigo-800 flex items-center justify-center text-[8px] font-bold text-center">
                         DMP SEAL
@@ -766,10 +959,23 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                     </table>
 
                     <div className="pt-6 flex justify-between items-end">
-                      <span className="text-[9px] text-slate-500">টাকা জমা প্রদানকারী</span>
+                      <div className="text-center">
+                        <div className="w-28 h-12 border-b border-slate-400 mb-1 flex items-center justify-center">
+                          {docFields.signatureUrl ? (
+                            <img
+                              src={docFields.signatureUrl}
+                              alt="টাকা জমা প্রদানকারী স্বাক্ষর"
+                              className="max-h-11 max-w-[110px] object-contain"
+                            />
+                          ) : (
+                            <span className="font-serif italic text-xs text-slate-800">{docFields.name}</span>
+                          )}
+                        </div>
+                        <span className="text-[9px] text-slate-500">টাকা জমা প্রদানকারী</span>
+                      </div>
                       <div className="text-center">
                         <div className="w-24 border-b border-slate-400 mb-1 font-serif italic text-xs">ম্যানেজার</div>
-                        <span className="text-[9px] font-bold text-slate-700">শাখা ব্যবস্থাপক</span>
+                        <span className="text-[9px] font-bold text-slate-700"> শাখা ব্যবস্থাপক</span>
                       </div>
                     </div>
                   </div>

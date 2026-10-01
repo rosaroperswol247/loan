@@ -88,6 +88,7 @@ export default function StaffDashboardPage() {
   // Editable Applicant Details state
   const [editStatus, setEditStatus] = useState('');
   const [editBalance, setEditBalance] = useState(0);
+  const [editInterestRate, setEditInterestRate] = useState('2.4');
   const [editUpdating, setEditUpdating] = useState(false);
   const [editSuccess, setEditSuccess] = useState('');
 
@@ -124,6 +125,8 @@ export default function StaffDashboardPage() {
     setSelectedApplicant(applicant);
     setEditStatus(applicant.status);
     setEditBalance(applicant.userBalance || 0);
+    const rawRate = applicant.interestRate !== undefined ? Number(applicant.interestRate) : 0.024;
+    setEditInterestRate(rawRate <= 1 ? (rawRate * 100).toFixed(1) : rawRate.toString());
     setNoticeSuccess('');
     setEditSuccess('');
   };
@@ -219,17 +222,30 @@ export default function StaffDashboardPage() {
     setEditSuccess('');
 
     try {
-      await fetch('/api/staff/loans', {
+      const res = await fetch('/api/staff/loans', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           loanId: selectedApplicant.id,
           status: editStatus,
-          userBalance: editBalance
+          userBalance: editBalance,
+          interestRate: Number(editInterestRate)
         })
       });
 
-      setEditSuccess('তথ্য সফলভাবে হালনাগাদ করা হয়েছে!');
+      const resData = await res.json();
+      if (resData.success && resData.loan) {
+        setSelectedApplicant(prev => ({
+          ...prev,
+          status: resData.loan.status,
+          userBalance: resData.loan.userBalance,
+          interestRate: resData.loan.interestRate,
+          monthlyEmi: resData.loan.monthlyEmi,
+          totalRepayment: resData.loan.totalRepayment
+        }));
+      }
+
+      setEditSuccess('তথ্য ও সুদের হার সফলভাবে হালনাগাদ করা হয়েছে!');
       fetchStaffData();
     } catch (err) {
       console.error(err);
@@ -611,11 +627,18 @@ export default function StaffDashboardPage() {
                     </span>
                   </div>
 
-                  <div className="bg-[#09132c] p-2.5 rounded-lg border border-blue-900/40">
-                    <span className="text-slate-400 text-[10px] block">Interest Rate</span>
-                    <span className="font-bold text-cyan-400 text-sm font-mono">
-                      {((selectedApplicant.interestRate || 0.024) * 100).toFixed(1)}%
-                    </span>
+                  <div className="bg-[#09132c] p-2.5 rounded-lg border border-cyan-800/60 ring-1 ring-cyan-500/20">
+                    <span className="text-cyan-400 text-[10px] font-bold block">Interest Rate (% বার্ষিক)</span>
+                    <div className="flex items-center space-x-1 mt-0.5">
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={editInterestRate}
+                        onChange={(e) => setEditInterestRate(e.target.value)}
+                        className="bg-transparent font-mono font-bold text-cyan-300 text-sm focus:outline-none w-full border-b border-cyan-500/50"
+                      />
+                      <span className="text-xs text-cyan-400 font-bold">%</span>
+                    </div>
                   </div>
 
                   <div className="bg-[#09132c] p-2.5 rounded-lg border border-blue-900/40">

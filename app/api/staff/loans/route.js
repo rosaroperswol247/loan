@@ -173,7 +173,7 @@ export async function GET(request) {
 
 export async function PATCH(request) {
   try {
-    const { loanId, status, userBalance } = await request.json();
+    const { loanId, status, userBalance, interestRate } = await request.json();
     const { supabase, user, staffRole } = await getAuthContext();
     if (!user) return unauthorizedResponse();
     if (!staffRole) return forbiddenResponse();
@@ -192,6 +192,31 @@ export async function PATCH(request) {
     const changes = { updated_at: new Date().toISOString() };
     if (status !== undefined) changes.status = status;
     if (userBalance !== undefined) changes.user_balance = Number(userBalance);
+
+    if (interestRate !== undefined && interestRate !== null && interestRate !== '') {
+      const rateNum = Number(interestRate);
+      if (Number.isFinite(rateNum) && rateNum >= 0) {
+        // e.g. 2.4% -> 0.024
+        const rateDecimal = rateNum > 1 ? rateNum / 100 : rateNum;
+        changes.interest_rate = rateDecimal;
+
+        const { data: currentLoan } = await supabase
+          .from('loans')
+          .select('amount, tenure_months')
+          .eq('id', loanId)
+          .maybeSingle();
+
+        if (currentLoan) {
+          const loanAmt = Number(currentLoan.amount) || 0;
+          const tenure = Number(currentLoan.tenure_months) || 12;
+          const interestAmt = loanAmt * (tenure / 12) * rateDecimal;
+          const totalRepay = Math.round(loanAmt + interestAmt);
+          changes.total_repayment = totalRepay;
+          changes.monthly_emi = tenure > 0 ? Number((totalRepay / tenure).toFixed(2)) : 0;
+        }
+      }
+    }
+
     const { data, error } = await supabase
       .from('loans')
       .update(changes)
@@ -201,7 +226,7 @@ export async function PATCH(request) {
     if (error) throw error;
     if (!data) return NextResponse.json({ success: false, message: 'ঋণ পাওয়া যায়নি' }, { status: 404 });
 
-    return NextResponse.json({ success: true, message: 'স্ট্যাটাস আপডেট সফল হয়েছে', loan: toClientLoan(data) });
+    return NextResponse.json({ success: true, message: 'স্ট্যাটাস ও লোন তথ্য আপডেট সফল হয়েছে', loan: toClientLoan(data) });
   } catch (err) {
     console.error('Update loan error:', err);
     return NextResponse.json({ success: false, message: 'সার্ভার ত্রুটি' }, { status: 500 });

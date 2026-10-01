@@ -28,6 +28,11 @@ export async function POST(request) {
     });
 
     if (error) {
+      console.error('Supabase signup failed', {
+        status: error.status,
+        code: error.code,
+        message: error.message,
+      });
       const duplicate = /already|registered/i.test(error.message);
       return NextResponse.json(
         {

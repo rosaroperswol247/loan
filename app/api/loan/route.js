@@ -50,6 +50,50 @@ export async function POST(request) {
     const { supabase, user, profile } = await getAuthContext();
     if (!user) return unauthorizedResponse();
 
+    const [personalResult, nomineeResult, bankResult] = await Promise.all([
+      supabase.from('personal_info')
+        .select('applicant_name, father_name, mother_name, nid_number')
+        .eq('user_id', user.id)
+        .maybeSingle(),
+      supabase.from('nominee_info')
+        .select('nominee_name, relationship, nominee_phone')
+        .eq('user_id', user.id)
+        .maybeSingle(),
+      supabase.from('bank_info')
+        .select('method, account_number')
+        .eq('user_id', user.id)
+        .maybeSingle(),
+    ]);
+
+    for (const result of [personalResult, nomineeResult, bankResult]) {
+      if (result.error) throw result.error;
+    }
+
+    const missingSections = [];
+    if (!personalResult.data?.applicant_name?.trim()
+      || !personalResult.data?.father_name?.trim()
+      || !personalResult.data?.mother_name?.trim()
+      || !personalResult.data?.nid_number?.trim()) {
+      missingSections.push('personal');
+    }
+    if (!nomineeResult.data?.nominee_name?.trim()
+      || !nomineeResult.data?.relationship?.trim()
+      || !nomineeResult.data?.nominee_phone?.trim()) {
+      missingSections.push('nominee');
+    }
+    if (!bankResult.data?.method?.trim() || !bankResult.data?.account_number?.trim()) {
+      missingSections.push('bank');
+    }
+
+    if (missingSections.length) {
+      return NextResponse.json({
+        success: false,
+        code: 'PROFILE_INCOMPLETE',
+        missingSections,
+        message: 'ঋণের আবেদন করার আগে প্রয়োজনীয় ব্যক্তিগত, নমিনী ও ব্যাংক তথ্য পূরণ করুন',
+      }, { status: 409 });
+    }
+
     const numAmount = Number(amount);
     const numTenure = Number(tenureMonths);
     if (!Number.isFinite(numAmount) || numAmount <= 0 || !Number.isInteger(numTenure) || numTenure <= 0) {

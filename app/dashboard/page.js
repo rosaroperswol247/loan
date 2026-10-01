@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import ClientHeader from '@/components/ClientHeader';
 import {
   ShieldCheck,
@@ -33,6 +34,7 @@ export default function CustomerDashboardPage() {
   const [loan, setLoan] = useState(null);
   const [notices, setNotices] = useState([]);
   const [profile, setProfile] = useState(null);
+  const [nominee, setNominee] = useState(null);
   const [bank, setBank] = useState(null);
   const [fetching, setFetching] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -64,6 +66,30 @@ export default function CustomerDashboardPage() {
   // Dynamic EMI Calculation
   const totalRepayment = Math.round(amount + (amount * (tenureMonths / 12) * 0.024));
   const monthlyEmi = (totalRepayment / tenureMonths).toFixed(2);
+
+  const requiredInfo = [
+    {
+      href: '/personal-info',
+      title: 'ব্যক্তিগত তথ্য',
+      complete: Boolean(profile?.applicantName?.trim()
+        && profile?.fatherName?.trim()
+        && profile?.motherName?.trim()
+        && profile?.nidNumber?.trim()),
+    },
+    {
+      href: '/nominee-info',
+      title: 'নমিনীর তথ্য',
+      complete: Boolean(nominee?.nomineeName?.trim()
+        && nominee?.relationship?.trim()
+        && nominee?.nomineePhone?.trim()),
+    },
+    {
+      href: '/bank',
+      title: 'ব্যাংক বা মোবাইল ওয়ালেট',
+      complete: Boolean(bank?.method?.trim() && bank?.accountNumber?.trim()),
+    },
+  ];
+  const applicationReady = requiredInfo.every(section => section.complete);
 
   // Banner slides
   const slides = [
@@ -100,14 +126,15 @@ export default function CustomerDashboardPage() {
     const user = JSON.parse(saved);
     setCurrentUser(user);
 
-    // Fetch user loan, notices, personal info and bank info
+    // Fetch application status and each required information step.
     Promise.all([
       fetch(`/api/loan?userId=${user.id}`).then(r => r.json()),
       fetch(`/api/notices?userId=${user.id}`).then(r => r.json()),
       fetch(`/api/profile/personal?userId=${user.id}`).then(r => r.json()),
+      fetch(`/api/profile/nominee?userId=${user.id}`).then(r => r.json()),
       fetch(`/api/profile/bank?userId=${user.id}`).then(r => r.json())
     ])
-      .then(([loanRes, noticesRes, profileRes, bankRes]) => {
+      .then(([loanRes, noticesRes, profileRes, nomineeRes, bankRes]) => {
         if (loanRes.success && loanRes.loan) {
           setLoan(loanRes.loan);
           setAmount(loanRes.loan.amount);
@@ -124,6 +151,9 @@ export default function CustomerDashboardPage() {
         }
         if (profileRes.success && profileRes.data) {
           setProfile(profileRes.data);
+        }
+        if (nomineeRes.success && nomineeRes.data) {
+          setNominee(nomineeRes.data);
         }
         if (bankRes.success && bankRes.data) {
           setBank(bankRes.data);
@@ -456,6 +486,37 @@ export default function CustomerDashboardPage() {
               </div>
             )}
 
+            {!applicationReady ? (
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 space-y-3">
+                <div className="border-b border-slate-100 pb-3">
+                  <h4 className="font-bold text-sm text-slate-800">আবেদন করার আগে তথ্য পূরণ করুন</h4>
+                  <p className="text-xs text-slate-500 mt-1">ঋণের আবেদন জমা দিতে নিচের সব ধাপ সম্পন্ন করতে হবে।</p>
+                </div>
+                <div className="space-y-2">
+                  {requiredInfo.map((section) => (
+                    <Link
+                      key={section.href}
+                      href={section.href}
+                      className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 hover:border-blue-300 hover:bg-blue-50 transition-colors"
+                    >
+                      {section.complete ? (
+                        <CheckCircle size={20} className="text-emerald-600 flex-shrink-0" />
+                      ) : (
+                        <FileText size={20} className="text-blue-600 flex-shrink-0" />
+                      )}
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-sm font-semibold text-slate-800">{section.title}</span>
+                        <span className={`block text-xs ${section.complete ? 'text-emerald-700' : 'text-amber-700'}`}>
+                          {section.complete ? 'সম্পন্ন' : 'তথ্য পূরণ করুন'}
+                        </span>
+                      </span>
+                      <ChevronRight size={17} className="text-slate-400 flex-shrink-0" />
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ) : (
+            <div className="space-y-4">
             {/* Info Badges */}
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-white rounded-xl p-3 shadow-sm border border-slate-200/80 flex items-center space-x-3">
@@ -590,6 +651,8 @@ export default function CustomerDashboardPage() {
                 </button>
               </form>
             </div>
+            </div>
+            )}
           </div>
         )}
 

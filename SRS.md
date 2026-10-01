@@ -134,14 +134,14 @@ The system is a full-stack web application built with **Next.js 14**, **React 18
 - **Signature Subsystem:** HTML5 Canvas 2D with high-DPI scaling and touch/pointer handling.
 - **Document Output:** CSS `@media print` with vector/DOM rendering.
 
-> **Security note:** passwords are managed by Supabase Auth. Staff access and applicant data are checked on the server and constrained by database policies. HTTPS, SMS-provider configuration, and review of applicable privacy and financial regulations are required for deployment.
+> **Security note:** passwords are managed by Supabase Auth. Staff access and applicant data are checked on the server and constrained by database policies. HTTPS and review of applicable privacy and financial regulations are required for deployment.
 
 ### 2.5 Design & Implementation Constraints
 - User and staff records are provisioned through Supabase Auth; staff membership is granted explicitly in `staff_members`.
 - Identity images are uploaded to a private Storage bucket and served using short-lived signed URLs.
 
 ### 2.6 Assumptions & Dependencies
-- A Supabase project, verified SMS provider, and at least one explicitly provisioned staff account are required.
+- A Supabase project with phone confirmation disabled and at least one explicitly provisioned staff account are required.
 - The host has network access to Google Fonts (or a local fallback font is acceptable).
 
 ---
@@ -390,7 +390,7 @@ All documents are the lender's own, on MyBank branding. No document is attribute
 
 | ID | Test Scenario | Expected Outcome | Status |
 | :--- | :--- | :--- | :--- |
-| **TC-01** | User registers with a new phone | SMS verification is required before redirect to `/personal-info`. | PASS |
+| **TC-01** | User registers with a new phone | Account is created without an SMS code and redirects to `/personal-info`. | PASS |
 | **TC-02** | Register with a duplicate phone | Error: "এই ফোন নম্বরটি ইতিমধ্যে নিবন্ধিত আছে।" | PASS |
 | **TC-03** | User draws signature and submits | Canvas exports Base64 PNG; persisted. | PASS |
 | **TC-04** | User submits a loan application | Form transitions into the active dashboard with three metric cards. | PASS |
@@ -421,4 +421,4 @@ npm run dev
 - **Staff Dashboard:** `http://localhost:3000/staff`
 
 ### Supabase Configuration
-Copy `.env.example` to `.env.local`, fill in the Supabase URL and publishable key, apply the SQL migration, configure a verified SMS provider, and provision staff as described in [`supabase/SETUP.md`](supabase/SETUP.md). There is no default admin account or password.
+Copy `.env.example` to `.env.local`, fill in the Supabase URL and publishable key, apply the SQL migration, disable phone confirmation, and provision staff as described in [`supabase/SETUP.md`](supabase/SETUP.md). There is no default admin account or password.

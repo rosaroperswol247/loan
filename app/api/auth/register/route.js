@@ -36,20 +36,14 @@ export async function POST(request) {
       );
     }
 
-    if (!data.user) {
+    if (!data.user || !data.session) {
       return NextResponse.json(
-        { success: false, message: 'নিবন্ধন করা যায়নি' },
+        {
+          success: false,
+          message: 'Supabase-এ Phone confirmation বন্ধ করে আবার চেষ্টা করুন',
+        },
         { status: 400 }
       );
-    }
-
-    if (!data.session) {
-      return NextResponse.json({
-        success: true,
-        confirmationRequired: true,
-        phone: normalizedPhone,
-        message: 'আপনার ফোনে পাঠানো যাচাইকরণ কোডটি লিখুন',
-      });
     }
 
     const user = await getPublicUser(supabase, data.user);

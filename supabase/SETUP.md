@@ -6,9 +6,9 @@ In the Supabase dashboard for this project, open **SQL Editor**, create a query,
 
 Do not make the document bucket public. It holds national ID images, photos, and signatures.
 
-## 2. Enable phone authentication
+## 2. Enable phone/password authentication
 
-In **Authentication → Sign In / Providers**, enable **Phone** and require phone confirmation. Configure an SMS provider with valid credentials and confirm that it supports the phone numbers your applicants will use. Registration sends a one-time SMS code; login uses the verified phone number and password.
+In **Authentication → Sign In / Providers**, enable **Phone** and disable phone confirmation. Registration immediately creates a session using the phone number and password; no SMS provider or OTP is used. If Supabase does not return a session at registration, phone confirmation is still enabled.
 
 Set the site's production URL and allowed redirect URLs under **Authentication → URL Configuration**.
 

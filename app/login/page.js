@@ -160,15 +160,7 @@ export default function LoginPage() {
           </Link>
         </div>
 
-        {/* Staff portal login link */}
-        <div className="mt-5 text-center">
-          <Link
-            href="/staff/login"
-            className="text-[11px] text-blue-600 hover:text-blue-800 underline font-semibold"
-          >
-            ব্যাংক অ্যাডমিন / স্টাফ লগইন (Admin Login)
-          </Link>
-        </div>
+
       </div>
     </div>
   );

@@ -1,35 +1,39 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
-import { getPublicUser } from '@/lib/api-auth';
+import { normalizePhone } from '@/lib/phone';
 
 export async function POST(request) {
   try {
-    const { email, password } = await request.json();
-    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const { phone } = await request.json();
+    const normalizedPhone = normalizePhone(phone);
 
-    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail) || !password) {
+    if (!normalizedPhone) {
       return NextResponse.json(
-        { success: false, message: 'সঠিক ইমেইল এবং পাসওয়ার্ড প্রদান করুন' },
+        { success: false, message: 'সঠিক ফোন নম্বর প্রদান করুন' },
         { status: 400 }
       );
     }
 
     const supabase = createClient(await cookies());
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: normalizedEmail,
-      password,
+    const { error } = await supabase.auth.signInWithOtp({
+      phone: normalizedPhone,
+      options: { shouldCreateUser: false },
     });
 
-    if (error || !data.user) {
+    if (error) {
+      console.error('Supabase phone login OTP failed', {
+        status: error.status,
+        code: error.code,
+        message: error.message,
+      });
       return NextResponse.json(
-        { success: false, message: 'ইমেইল অথবা পাসওয়ার্ড ভুল হয়েছে!' },
-        { status: 401 }
+        { success: false, message: 'SMS কোড পাঠানো যায়নি। ফোন নম্বর এবং SMS provider সেটিংস যাচাই করুন।' },
+        { status: 400 }
       );
     }
 
-    const user = await getPublicUser(supabase, data.user);
-    return NextResponse.json({ success: true, message: 'লগইন সফল হয়েছে', user });
+    return NextResponse.json({ success: true, phone: normalizedPhone, message: 'আপনার ফোনে পাঠানো OTP কোডটি লিখুন' });
   } catch (error) {
     console.error('Login error:', error);
     return NextResponse.json(

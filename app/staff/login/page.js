@@ -3,37 +3,52 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ShieldAlert, Lock, User, Eye, EyeOff, LogIn, ArrowLeft } from 'lucide-react';
+import { ShieldAlert, Lock, Phone, KeyRound, LogIn, ArrowLeft } from 'lucide-react';
 
 export default function StaffLoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [token, setToken] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
   const handleStaffLogin = async (e) => {
     e.preventDefault();
     setError('');
+    setNotice('');
 
-    if (!username || !password) {
-      setError('ইউজারনেম এবং পাসওয়ার্ড প্রদান করুন');
+    if (!phone.trim()) {
+      setError('ফোন নম্বর প্রদান করুন');
+      return;
+    }
+    if (otpSent && !/^\d{6}$/.test(token)) {
+      setError('৬ সংখ্যার OTP কোড দিন');
       return;
     }
 
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch(otpSent ? '/api/auth/verify' : '/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: username.trim(), password: password.trim() })
+        body: JSON.stringify(otpSent
+          ? { phone: phone.trim(), token }
+          : { phone: phone.trim() })
       });
 
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        setError(data.message || 'ইউজারনেম অথবা পাসওয়ার্ড ভুল হয়েছে!');
+        setError(data.message || 'অনুরোধ সম্পন্ন করা যায়নি');
+        setLoading(false);
+        return;
+      }
+
+      if (!otpSent) {
+        setOtpSent(true);
+        setNotice(data.message || 'স্টাফ লগইনের OTP কোড পাঠানো হয়েছে');
         setLoading(false);
         return;
       }
@@ -88,55 +103,62 @@ export default function StaffLoginPage() {
           </div>
         )}
 
+        {notice && (
+          <div className="mb-4 p-3 bg-cyan-950/70 border border-cyan-600/40 rounded-xl text-cyan-200 text-xs font-semibold">
+            {notice}
+          </div>
+        )}
+
         {/* Form */}
         <form onSubmit={handleStaffLogin} className="space-y-4 relative z-10">
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1">
-              Staff Email
+              Staff Phone Number
             </label>
             <div className="relative">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
-                <User size={16} />
+                <Phone size={16} />
               </span>
               <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                type="email"
-                placeholder="Enter staff email"
-                autoComplete="email"
+                type="tel"
+                value={phone}
+                onChange={(e) => {
+                  setPhone(e.target.value);
+                  setOtpSent(false);
+                  setToken('');
+                  setNotice('');
+                }}
+                placeholder="Enter staff phone number"
+                autoComplete="tel"
                 className="w-full pl-9 pr-3 py-2.5 bg-[#070e22] border border-blue-900/60 rounded-xl text-xs font-semibold text-white focus:outline-none focus:border-cyan-400 transition-all font-mono"
                 required
               />
             </div>
           </div>
 
+          {otpSent && (
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1">
-              Admin Password
+              OTP Code
             </label>
             <div className="relative">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
-                <Lock size={16} />
+                <KeyRound size={16} />
               </span>
               <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                autoComplete="off"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={token}
+                onChange={(e) => setToken(e.target.value.replace(/\D/g, ''))}
+                placeholder="6-digit code"
                 className="w-full pl-9 pr-10 py-2.5 bg-[#070e22] border border-blue-900/60 rounded-xl text-xs font-semibold text-white focus:outline-none focus:border-cyan-400 transition-all font-mono"
                 required
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-200"
-              >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
             </div>
           </div>
+          )}
 
           <button
             type="submit"
@@ -148,7 +170,7 @@ export default function StaffLoginPage() {
             ) : (
               <>
                 <LogIn size={15} />
-                <span>Login to Staff Dashboard</span>
+                <span>{otpSent ? 'Verify OTP' : 'Send OTP'}</span>
               </>
             )}
           </button>

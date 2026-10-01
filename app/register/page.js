@@ -3,17 +3,14 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { User, Mail, Phone, Lock, Eye, EyeOff, UserPlus, LogIn, ShieldCheck, Landmark } from 'lucide-react';
+import { User, Phone, KeyRound, UserPlus, LogIn, ShieldCheck, Landmark } from 'lucide-react';
 
 export default function RegisterPage() {
   const router = useRouter();
   const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [token, setToken] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -23,13 +20,8 @@ export default function RegisterPage() {
     setError('');
     setNotice('');
 
-    if (!fullName || !email || !phone || !password) {
-      setError('অনুগ্রহ করে সবগুলো ঘর পূরণ করুন');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError('পাসওয়ার্ড দুটি মেলেনি');
+    if (!fullName.trim() || !phone.trim()) {
+      setError('নাম এবং ফোন নম্বর দিন');
       return;
     }
 
@@ -40,9 +32,7 @@ export default function RegisterPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fullName: fullName.trim(),
-          email: email.trim(),
-          phone: phone.trim(),
-          password: password.trim()
+          phone: phone.trim()
         })
       });
 
@@ -54,16 +44,40 @@ export default function RegisterPage() {
         return;
       }
 
-      if (data.confirmationRequired) {
-        setNotice(data.message);
+      setOtpSent(true);
+      setNotice(data.message || 'আপনার ফোনে পাঠানো OTP কোডটি লিখুন');
+    } catch (err) {
+      console.error(err);
+      setError('নেটওয়ার্ক সমস্যা, অনুগ্রহ করে আবার চেষ্টা করুন');
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (!/^\d{6}$/.test(token)) {
+      setError('৬ সংখ্যার OTP কোড দিন');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phone.trim(), token })
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setError(data.message || 'OTP যাচাই করা যায়নি');
         setLoading(false);
         return;
       }
 
-      // Auto login user
       localStorage.setItem('loan_user', JSON.stringify(data.user));
-
-      // Direct to personal info step
       router.push('/personal-info');
     } catch (err) {
       console.error(err);
@@ -98,7 +112,7 @@ export default function RegisterPage() {
           </div>
         )}
 
-        <form onSubmit={handleRegister} className="space-y-3.5">
+        <form onSubmit={otpSent ? handleVerifyOtp : handleRegister} className="space-y-3.5">
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">
               পুরো নাম
@@ -111,6 +125,7 @@ export default function RegisterPage() {
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
+                disabled={otpSent}
                 placeholder="আপনার পুরো নাম লিখুন"
                 className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
                 required
@@ -120,27 +135,7 @@ export default function RegisterPage() {
 
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">
-              ইমেইল
-            </label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
-                <Mail size={16} />
-              </span>
-              <input
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="আপনার ইমেইল লিখুন"
-                className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
-                required
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">
-              যোগাযোগের ফোন নম্বর
+              ফোন নম্বর
             </label>
             <div className="relative">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
@@ -148,8 +143,10 @@ export default function RegisterPage() {
               </span>
               <input
                 type="tel"
+                autoComplete="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
+                disabled={otpSent}
                 placeholder="আপনার ফোন নম্বর লিখুন"
                 className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-mono"
                 required
@@ -157,57 +154,22 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">
-              পাসওয়ার্ড
-            </label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
-                <Lock size={16} />
-              </span>
+          {otpSent && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">OTP কোড</label>
               <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="একটি শক্তিশালী পাসওয়ার্ড তৈরি করুন"
-                className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-mono"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={token}
+                onChange={(e) => setToken(e.target.value.replace(/\D/g, ''))}
+                placeholder="৬ সংখ্যার OTP"
+                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-center text-base font-mono tracking-widest text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
                 required
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
-              >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
             </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">
-              পাসওয়ার্ড নিশ্চিত করুন
-            </label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
-                <Lock size={16} />
-              </span>
-              <input
-                type={showConfirmPassword ? 'text' : 'password'}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="আপনার পাসওয়ার্ড আবার লিখুন"
-                className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-mono"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
-              >
-                {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-          </div>
+          )}
 
           <button
             type="submit"
@@ -219,7 +181,7 @@ export default function RegisterPage() {
             ) : (
               <>
                 <UserPlus size={16} />
-                <span>নিবন্ধন করুন</span>
+                <span>{otpSent ? 'OTP যাচাই করুন' : 'OTP পাঠান'}</span>
               </>
             )}
           </button>

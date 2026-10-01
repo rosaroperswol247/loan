@@ -14,23 +14,21 @@ The migrations create the tables, Row Level Security policies, profile/loan trig
 
 Do not make the document bucket public. It holds national ID images, photos, and signatures.
 
-## 2. Enable email/password authentication
+## 2. Enable phone OTP authentication
 
-In **Authentication → Sign In / Providers**, enable **Email**. Phone sign-in and SMS are not used. Email confirmation may stay enabled: registration sends a confirmation link, not an OTP, and `/auth/callback` creates the session after the link is opened.
+In **Authentication → Sign In / Providers → Phone**, enable the Phone provider and phone confirmations. Disable the Email provider for phone-only authentication. Select **Twilio** and enter the Account SID, Auth Token, and Message Service SID from the Twilio Console. These credentials are required for Supabase to send OTP messages; never commit or share them. Set the SMS template to include Supabase's OTP code variable.
 
-Set the site's production URL and add the production and local `/auth/callback` URLs to the allowed redirect URLs under **Authentication → URL Configuration**.
+Email sign-in is not used by the app. The OTP is verified through the server API, so the `/auth/callback` URL is not used for phone login.
 
 ## 3. Create the first staff account
 
-Register the staff account at the site using an email address, a strong, unique password, and a contact phone number. Open the email confirmation link before granting staff access. Do not use a short numeric PIN for an administrator account; staff can access applicant identity and banking information.
-
-Then run this query in SQL Editor, replacing the email with the staff account's email:
+Register the staff account at the site with its phone number and verify the SMS OTP. Then run this query in SQL Editor, replacing the number with the staff account's E.164 phone number (for Bangladesh, for example, `+8801701234567`). Do not use a short numeric PIN for an administrator account; staff can access applicant identity and banking information.
 
 ```sql
 insert into public.staff_members (user_id, role)
 select id, 'admin'
 from auth.users
-where email = 'admin@example.com'
+where phone = '+8801701234567'
 on conflict (user_id) do update set role = excluded.role;
 ```
 

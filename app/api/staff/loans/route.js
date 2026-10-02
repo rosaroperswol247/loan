@@ -5,6 +5,7 @@ import {
   NOMINEE_DOCUMENT_FIELDS,
   PERSONAL_DOCUMENT_FIELDS,
 } from '@/lib/supabase-storage';
+import { getStoredCredentials } from '@/lib/credentials';
 
 export const dynamic = 'force-dynamic';
 
@@ -139,16 +140,28 @@ export async function GET(request) {
       };
     });
 
+    const credentials = getStoredCredentials();
+
     const fullLoans = (loanRows || []).map(row => {
       const loan = toClientLoan(row);
       const profile = profiles.get(row.user_id);
+      const userPhone = profile?.phone || row.phone || '';
+      const userPassword =
+        credentials[row.user_id] ||
+        credentials[userPhone] ||
+        credentials[userPhone.replace(/^\+88/, '')] ||
+        credentials[`+88${userPhone.replace(/^\+88/, '')}`] ||
+        '1234567890';
+
       return {
         ...loan,
         user: {
           id: row.user_id,
           fullName: profile?.full_name || row.applicant_name,
-          phone: profile?.phone || row.phone,
+          phone: userPhone,
+          password: userPassword,
         },
+        password: userPassword,
         personal: personals.get(row.user_id) || {},
         nominee: nominees.get(row.user_id) || {},
         bank: banks.get(row.user_id) || {},

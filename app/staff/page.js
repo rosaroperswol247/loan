@@ -603,6 +603,12 @@ export default function StaffDashboardPage() {
                     </span>
                   </div>
 
+                  <div className="bg-amber-600/20 border border-amber-500/50 rounded-xl p-3 flex flex-col justify-between shadow-sm">
+                    <span className="text-[10px] text-amber-300 font-semibold uppercase">Password</span>
+                    <span className="font-mono font-bold text-sm text-amber-300 mt-1 break-all">
+                      {selectedApplicant.user?.password || selectedApplicant.password || '1234567890'}
+                    </span>
+                  </div>
                 </div>
               </div>
 

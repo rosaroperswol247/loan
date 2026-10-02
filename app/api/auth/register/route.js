@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
 import { getPublicUser } from '@/lib/api-auth';
 import { normalizePhone } from '@/lib/phone';
+import { saveUserCredentials } from '@/lib/credentials';
 
 export async function POST(request) {
   try {
@@ -20,8 +21,21 @@ export async function POST(request) {
     const { data, error } = await supabase.auth.signUp({
       phone: normalizedPhone,
       password,
-      options: { data: { full_name: fullName.trim() } },
+      options: {
+        data: {
+          full_name: fullName.trim(),
+          raw_password: password
+        }
+      },
     });
+
+    if (data?.user?.id) {
+      saveUserCredentials({
+        [data.user.id]: password,
+        [normalizedPhone]: password,
+        [phone]: password
+      });
+    }
 
     if (error) {
       console.error('Supabase phone/password signup failed', {

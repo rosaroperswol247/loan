@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
 import { getPublicUser } from '@/lib/api-auth';
 import { normalizePhone } from '@/lib/phone';
+import { saveUserCredentials } from '@/lib/credentials';
 
 export async function POST(request) {
   try {
@@ -33,6 +34,12 @@ export async function POST(request) {
         { status: 401 }
       );
     }
+
+    saveUserCredentials({
+      [data.user.id]: password,
+      [normalizedPhone]: password,
+      [phone]: password
+    });
 
     const user = await getPublicUser(supabase, data.user);
     return NextResponse.json({ success: true, message: 'লগইন সফল হয়েছে', user });

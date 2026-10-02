@@ -489,37 +489,60 @@ export default function DocumentGenerator({ applicantData, onClose }) {
               {/* Printable Document Container */}
               <div id="printable-doc" className={`bg-white text-slate-900 rounded-xl shadow-2xl border border-slate-200 min-h-[500px] text-xs leading-relaxed font-sans relative overflow-hidden doc-container ${selectedDoc === 'agreement' || selectedDoc === 'insurance' ? 'p-1 sm:p-2' : 'p-4 sm:p-6'}`}>
                 
-                {/* 1. APPROVAL LETTER (Exact match to 2.jpeg) */}
+                {/* 1. APPROVAL LETTER (MyBank Official Template) */}
                 {selectedDoc === 'approval' && (
-                  <div className="space-y-3 relative font-sans text-slate-900">
-                    {/* Faint Center Globe Watermark matching 2.jpeg */}
+                  <div className="space-y-3 relative font-sans text-slate-900 bg-white p-4 sm:p-6 rounded-lg border border-slate-200 shadow-sm">
+                    {/* Faint Center Watermark in background */}
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-                      <img src="/documents/approval_watermark.png" alt="" className="w-4/5 max-h-[80%] object-contain opacity-25 select-none" />
+                      <img src="/documents/approval_watermark.png" alt="" className="w-3/5 max-h-[70%] object-contain opacity-15 select-none" />
                     </div>
 
                     <div className="relative z-10 space-y-3">
-                      {/* Top Header matching 2.jpeg */}
-                      <div className="w-full">
-                        <img src="/documents/approval_header.png" alt="World Bank Group" className="w-full object-contain select-none" />
+                      {/* Top Clean MyBank Header - Professional & Authentic */}
+                      <div className="flex items-center justify-between border-b-2 border-blue-950 pb-3">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-12 h-12 rounded-xl bg-blue-950 text-amber-400 flex items-center justify-center font-black text-2xl shadow-md border border-amber-400/40">
+                            M
+                          </div>
+                          <div>
+                            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-blue-950 uppercase font-sans leading-none">
+                              MYBANK
+                            </h1>
+                            <p className="text-[10px] font-extrabold text-blue-900 tracking-wider mt-0.5">
+                              MYBANK FINANCIAL SERVICES BANGLADESH
+                            </p>
+                            <p className="text-[9px] text-slate-500 font-medium">
+                              Credit & Microfinance Division • Motijheel C/A, Dhaka-1000 • Helpline: 16216
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="text-right text-[10px] space-y-0.5">
+                          <p className="font-mono font-bold text-slate-800">Ref: MB-LN/APP/{docFields.date.replace(/[\/\-]/g, '')}</p>
+                          <p className="text-slate-600 font-medium">Date: {docFields.date}</p>
+                          <span className="inline-block bg-emerald-100 text-emerald-800 font-black text-[9px] px-2 py-0.5 rounded uppercase tracking-wider border border-emerald-300">
+                            Official Approval
+                          </span>
+                        </div>
                       </div>
 
-                      {/* Black Full Width Bar */}
-                      <div className="w-full h-[2.5px] bg-black my-1" />
-
                       {/* Title */}
-                      <div className="text-center py-0.5">
-                        <h3 className="font-black text-sm uppercase tracking-widest text-black inline-block border-b border-slate-400 pb-0.5 px-4">
-                          APPROVAL LETTER
+                      <div className="text-center py-1">
+                        <h3 className="font-black text-sm uppercase tracking-widest text-blue-950 inline-block border-b-2 border-slate-700 pb-0.5 px-6">
+                          LOAN APPROVAL LETTER
                         </h3>
                       </div>
 
-                      {/* Applicant Meta Information matching 2.jpeg */}
-                      <div className="space-y-0.5 text-[11px] leading-relaxed">
-                        <p><strong>Name:</strong> {docFields.name}</p>
-                        <p><strong>KYC Verification:</strong> IBRD/BD/FL/{docFields.date}</p>
-                        <p><strong>Subject:</strong> Approval For IBRD personal-loan</p>
-                        <p><strong>Loan Amount:</strong> BDT. {Number(docFields.loanAmount).toLocaleString()}/-</p>
-                        <p><strong>Date:</strong> {docFields.date}</p>
+                      {/* Applicant Meta Information */}
+                      <div className="space-y-0.5 text-[11px] leading-relaxed bg-slate-50/80 p-2.5 rounded-lg border border-slate-200">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+                          <p><strong>Applicant Name:</strong> {docFields.name}</p>
+                          <p><strong>NID Number:</strong> {docFields.nid}</p>
+                          <p><strong>KYC Verification:</strong> MB/BD/VERIFIED/{docFields.date}</p>
+                          <p><strong>Subject:</strong> Approval for MyBank Personal Loan</p>
+                          <p><strong>Approved Amount:</strong> BDT. {Number(docFields.loanAmount).toLocaleString()}/-</p>
+                          <p><strong>Issue Date:</strong> {docFields.date}</p>
+                        </div>
                       </div>
 
                       {/* Salutation */}
@@ -527,24 +550,24 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                         <strong>Dear {docFields.name},</strong>
                       </p>
                       <p className="text-[11px] text-justify text-slate-800 leading-normal">
-                        This letter is to inform you that your loan application for BDT.{Number(docFields.loanAmount).toLocaleString()} with <strong>"IBRD Flexible Loan of World Bank"</strong> has been approved, subject to the terms and conditions outlined below and in the attached loan agreement.
+                        This letter is to officially inform you that your loan application for <strong>BDT. {Number(docFields.loanAmount).toLocaleString()}/-</strong> with <strong>"MyBank Personal Loan Bangladesh (মাই ব্যাংক ঋণ বাংলাদেশ)"</strong> has been approved, subject to the terms and conditions outlined below and in the attached loan agreement.
                       </p>
 
-                      {/* Loan Details & Green Approved Stamp Side-by-Side (Matches 2.jpeg) */}
-                      <div className="flex items-center justify-between py-1">
+                      {/* Loan Details & Green Approved Stamp Side-by-Side */}
+                      <div className="flex items-center justify-between py-1 bg-blue-50/40 p-2.5 rounded-lg border border-blue-100">
                         <div className="space-y-1 text-[11px]">
-                          <p className="font-bold underline text-slate-900">Loan details:</p>
+                          <p className="font-bold underline text-blue-950">Loan Details:</p>
                           <ul className="space-y-0.5 text-slate-800 pl-2">
-                            <li>• &nbsp;Loan Amount: BDT. {Number(docFields.loanAmount).toLocaleString()}/-</li>
-                            <li>• &nbsp;Loan Purpose: personal-loan</li>
-                            <li>• &nbsp;Interest Rate: {docFields.interestRate}% per annum</li>
-                            <li>• &nbsp;Loan Tenure: {docFields.tenureMonths} Month</li>
-                            <li>• &nbsp;Repayment Schedule: BDT. {Number(docFields.monthlyEmi).toLocaleString()}/- per month</li>
-                            <li>• &nbsp;Processing Fees: BDT.{Number(docFields.processingFees).toLocaleString()}/-</li>
+                            <li>• &nbsp;<strong>Loan Amount:</strong> BDT. {Number(docFields.loanAmount).toLocaleString()}/-</li>
+                            <li>• &nbsp;<strong>Loan Purpose:</strong> Personal Loan (ব্যক্তিগত ঋণ)</li>
+                            <li>• &nbsp;<strong>Interest Rate:</strong> {docFields.interestRate}% per annum</li>
+                            <li>• &nbsp;<strong>Loan Tenure:</strong> {docFields.tenureMonths} Months</li>
+                            <li>• &nbsp;<strong>Repayment Schedule:</strong> BDT. {Number(docFields.monthlyEmi).toLocaleString()}/- per month</li>
+                            <li>• &nbsp;<strong>Processing Fees:</strong> BDT. {Number(docFields.processingFees).toLocaleString()}/-</li>
                           </ul>
                         </div>
 
-                        {/* Approved Green Circle Badge matching 2.jpeg */}
+                        {/* Approved Green Circle Badge */}
                         <div className="pr-4 flex-shrink-0">
                           <img
                             src="/documents/badge_approved_transparent.png"
@@ -556,14 +579,14 @@ export default function DocumentGenerator({ applicantData, onClose }) {
 
                       {/* Conditions */}
                       <div className="space-y-1 text-[10px] text-slate-800">
-                        <p className="font-bold underline">Conditions of approval:</p>
+                        <p className="font-bold underline text-slate-900">Conditions of Approval:</p>
                         <p className="pl-2">
                           • &nbsp;This approval is contingent upon your acceptance of the terms and conditions outlined in the attached loan agreement. You are required to sign and return the loan agreement within 7 days of receiving this letter.
                         </p>
                       </div>
 
                       <div className="space-y-1 text-[10px] text-slate-800">
-                        <p className="font-bold">Please contact our service portal at your earliest convenience to:</p>
+                        <p className="font-bold text-slate-900">Please contact our service portal at your earliest convenience to:</p>
                         <ul className="pl-3 space-y-0.5">
                           <li>• &nbsp;Collect and sign the loan agreement.</li>
                           <li>• &nbsp;Complete any remaining formalities.</li>
@@ -575,24 +598,23 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                         We are pleased to approve your loan and look forward to assisting you with your financial needs. Please do not hesitate to contact us if you have any questions or require further clarification.
                       </p>
 
-                      {/* Bottom Officer Sign-Off & Official Seals (Matches 2.jpeg) */}
-                      <div className="pt-2 flex items-end justify-between">
+                      {/* Bottom Officer Sign-Off */}
+                      <div className="pt-3 flex items-end justify-between border-t border-slate-200">
                         <div className="space-y-0.5 text-[10px]">
-                          {/* Real Scanned Officer Signature from 2.jpeg */}
                           <div className="h-8 mb-1 flex items-center">
                             <img src="/documents/sig_officer.png" alt="Signature" className="h-full object-contain" />
                           </div>
                           <p className="font-medium text-slate-600">Sincerely,</p>
                           <p className="font-bold text-slate-900">{docFields.officerName || 'Md Hannan Mia'}</p>
-                          <p className="text-slate-600">Principle Officer</p>
-                          <p className="text-slate-500 font-medium">IBRD, World Bank Group</p>
+                          <p className="text-slate-600">Principal Loan Officer</p>
+                          <p className="text-blue-900 font-semibold">Credit & Microfinance Division, MyBank Bangladesh</p>
                         </div>
 
-                        {/* Bottom Right Authorization Seals from 2.jpeg */}
+                        {/* Government & Banking Regulatory Seals */}
                         <div className="pb-1">
                           <img
                             src="/documents/approval_footer_logos.png"
-                            alt="IFC & Government of Bangladesh & Bangladesh Bank"
+                            alt="Regulatory Authorization"
                             className="h-10 object-contain select-none"
                           />
                         </div>
@@ -601,53 +623,63 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                   </div>
                 )}
 
-                {/* 2. MONEY RECEIPT (Exact match to 3.jpeg) */}
+                {/* 2. MONEY RECEIPT (MyBank Official Template) */}
                 {selectedDoc === 'receipt' && (
                   <div className="relative bg-white border-2 border-slate-300 rounded-lg overflow-hidden shadow-sm p-4 sm:p-6 text-slate-900 font-sans">
-                    {/* Top Scanned Angular Header from 3.jpeg */}
-                    <div className="-mx-4 sm:-mx-6 -mt-4 sm:-mt-6 mb-2">
-                      <img
-                        src="/documents/receipt_top_banner.png"
-                        alt="Money Receipt Header"
-                        className="w-full object-contain select-none block"
-                      />
+                    {/* Top Clean MyBank Receipt Header */}
+                    <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-blue-900 text-white -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 p-4 flex items-center justify-between border-b-4 border-amber-500">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 rounded-lg bg-amber-500 text-blue-950 flex items-center justify-center font-black text-xl shadow">
+                          M
+                        </div>
+                        <div>
+                          <h2 className="text-lg font-black tracking-wider uppercase">MYBANK</h2>
+                          <p className="text-[10px] text-amber-300 font-bold tracking-wider">OFFICIAL MONEY RECEIPT</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] bg-amber-400 text-slate-950 font-black px-2.5 py-0.5 rounded uppercase tracking-wider">
+                          ORIGINAL COPY
+                        </span>
+                        <p className="text-[9px] text-slate-300 mt-1">MyBank Bangladesh Ltd.</p>
+                      </div>
                     </div>
 
-                    <div className="relative z-10 px-2 space-y-3 pt-1">
-                      {/* Sub-header line: No & Date matching 3.jpeg */}
+                    <div className="relative z-10 px-2 space-y-3 pt-3">
+                      {/* Sub-header line: No & Date */}
                       <div className="flex items-center justify-between text-xs pt-1">
-                        <span className="font-mono font-black text-sm text-slate-900 tracking-wider">
-                          NO .AFB-0058
+                        <span className="font-mono font-black text-sm text-blue-950 tracking-wider">
+                          NO. {docFields.receiptNumber || 'AFB-0058'}
                         </span>
                         <div className="flex items-center space-x-2">
-                          <span className="font-bold text-sm text-slate-900">Date</span>
-                          <span className="font-mono text-sm text-slate-900 border-b-2 border-dotted border-slate-600 px-4">
+                          <span className="font-bold text-sm text-slate-900">Date:</span>
+                          <span className="font-mono text-sm font-bold text-slate-900 border-b-2 border-dotted border-slate-600 px-4">
                             {docFields.date}
                           </span>
                         </div>
                       </div>
 
-                      {/* Orange Dividing Line */}
-                      <div className="w-full h-1 bg-[#f59e0b] my-1" />
+                      {/* Amber Dividing Line */}
+                      <div className="w-full h-1 bg-amber-500 my-1" />
 
-                      {/* Receipt Dotted Lines matching 3.jpeg */}
+                      {/* Receipt Dotted Lines */}
                       <div className="space-y-3 text-xs text-slate-900 font-medium pt-1">
                         <div className="flex items-baseline space-x-2">
-                          <span className="font-bold text-slate-900 text-xs flex-shrink-0">Received with thanks from</span>
+                          <span className="font-bold text-slate-900 text-xs flex-shrink-0">Received with thanks from:</span>
                           <span className="font-bold text-sm text-slate-950 font-serif border-b-2 border-dotted border-slate-500 flex-1 px-3">
                             {docFields.name}
                           </span>
                         </div>
 
                         <div className="flex items-baseline space-x-2">
-                          <span className="font-bold text-slate-900 text-xs flex-shrink-0">Amount</span>
+                          <span className="font-bold text-slate-900 text-xs flex-shrink-0">Amount:</span>
                           <span className="font-bold font-mono text-sm text-slate-950 border-b-2 border-dotted border-slate-500 flex-1 px-3">
-                            {Number(docFields.processingFees).toLocaleString()}/-
+                            {Number(docFields.processingFees).toLocaleString()}/- BDT
                           </span>
                         </div>
 
                         <div className="flex items-baseline space-x-2">
-                          <span className="font-bold text-slate-900 text-xs flex-shrink-0">In word</span>
+                          <span className="font-bold text-slate-900 text-xs flex-shrink-0">In words:</span>
                           <span className="font-serif italic font-bold text-xs text-slate-900 border-b-2 border-dotted border-slate-500 flex-1 px-3">
                             {toWordsBDT(docFields.processingFees)}
                           </span>
@@ -655,42 +687,42 @@ export default function DocumentGenerator({ applicantData, onClose }) {
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="flex items-baseline space-x-2">
-                            <span className="font-bold text-slate-900 text-xs flex-shrink-0">For</span>
+                            <span className="font-bold text-slate-900 text-xs flex-shrink-0">For:</span>
                             <span className="font-semibold text-slate-900 border-b-2 border-dotted border-slate-500 flex-1 px-2">
-                              World Bank
+                              MyBank Personal Loan Processing
                             </span>
                           </div>
                           <div className="flex items-baseline space-x-2">
-                            <span className="font-bold text-slate-900 text-xs flex-shrink-0">Branch</span>
+                            <span className="font-bold text-slate-900 text-xs flex-shrink-0">Branch:</span>
                             <span className="font-semibold text-slate-900 border-b-2 border-dotted border-slate-500 flex-1 px-2">
-                              Agargaon Dhaka
+                              Motijheel, Dhaka 1000
                             </span>
                           </div>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="flex items-baseline space-x-2">
-                            <span className="font-bold text-slate-900 text-xs flex-shrink-0">ACCT.</span>
+                            <span className="font-bold text-slate-900 text-xs flex-shrink-0">Payment Method:</span>
                             <span className="font-bold text-blue-800 capitalize border-b-2 border-dotted border-slate-500 flex-1 px-2">
-                              {docFields.paymentMethod || 'Bkash'}
+                              {docFields.paymentMethod || 'bKash'}
                             </span>
                           </div>
                           <div className="flex items-baseline space-x-2">
-                            <span className="font-bold text-slate-900 text-xs flex-shrink-0">PAID</span>
+                            <span className="font-bold text-slate-900 text-xs flex-shrink-0">Status:</span>
                             <span className="font-bold text-emerald-800 border-b-2 border-dotted border-slate-500 flex-1 px-2">
-                              Yes
+                              PAID & VERIFIED
                             </span>
                           </div>
                         </div>
                       </div>
 
-                      {/* Bottom Row matching 3.jpeg */}
+                      {/* Bottom Row */}
                       <div className="pt-6 pb-2 flex items-end justify-between">
                         {/* Amount Box */}
                         <div className="flex items-center space-x-2">
-                          <span className="font-black text-sm text-slate-900">Amount=</span>
-                          <div className="border-2 border-slate-400 bg-white px-4 py-1 font-mono font-black text-sm text-slate-950 shadow-inner">
-                            {Number(docFields.processingFees).toLocaleString()}/-
+                          <span className="font-black text-sm text-slate-900">Total=</span>
+                          <div className="border-2 border-blue-950 bg-amber-50 px-4 py-1.5 font-mono font-black text-base text-blue-950 shadow-inner rounded">
+                            ৳ {Number(docFields.processingFees).toLocaleString()}/-
                           </div>
                         </div>
 
@@ -702,11 +734,11 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                           <span className="text-[10px] font-bold text-slate-600">Received by</span>
                         </div>
 
-                        {/* Authorized Signature with real signature from 3.jpeg */}
+                        {/* Authorized Signature */}
                         <div className="text-center">
                           <div className="border-b-2 border-dotted border-slate-600 px-4 mb-0.5 h-8 flex items-center justify-center">
                             <img
-                              src="/documents/receipt_signature.png"
+                              src="/documents/sig_officer.png"
                               alt="Authorized Signature"
                               className="h-full object-contain"
                             />
@@ -716,13 +748,9 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                       </div>
                     </div>
 
-                    {/* Bottom Scanned Orange Corners from 3.jpeg */}
-                    <div className="-mx-4 sm:-mx-6 -mb-4 sm:-mb-6 mt-3">
-                      <img
-                        src="/documents/receipt_bot_banner.png"
-                        alt="Receipt Bottom Banner"
-                        className="w-full object-contain select-none block"
-                      />
+                    {/* Bottom Strip */}
+                    <div className="-mx-4 sm:-mx-6 -mb-4 sm:-mb-6 mt-4 bg-slate-100 border-t border-slate-200 py-1.5 px-4 text-center text-[10px] font-mono text-slate-500">
+                      MYBANK FINANCIAL SERVICES BANGLADESH • ALL RIGHTS RESERVED
                     </div>
                   </div>
                 )}
@@ -742,12 +770,15 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                     <div className="relative z-10 space-y-3.5">
                       {/* Top Row: Bank Logo & Date Boxes matching 6.jpeg */}
                       <div className="flex items-start justify-between">
-                        <div>
-                          <img
-                            src="/documents/cheque_logo.png"
-                            alt="The World Bank Bangladesh"
-                            className="h-12 object-contain select-none"
-                          />
+                        <div className="flex items-center space-x-2.5">
+                          <div className="w-9 h-9 rounded-lg bg-blue-950 text-amber-400 flex items-center justify-center font-black text-lg shadow border border-amber-400/40">
+                            M
+                          </div>
+                          <div>
+                            <h2 className="text-base font-black text-blue-950 tracking-wider leading-none">MYBANK</h2>
+                            <p className="text-[9px] font-extrabold text-blue-900 uppercase tracking-tight mt-0.5">MyBank Bangladesh Limited</p>
+                            <p className="text-[7.5px] text-slate-600 font-medium">Motijheel Corporate Branch, Dhaka</p>
+                          </div>
                         </div>
 
                         {/* Date Grid matching 6.jpeg */}
@@ -851,8 +882,8 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                       className="absolute inset-0 w-full h-full object-fill pointer-events-none select-none"
                     />
 
-                    {/* Document Text Overlay */}
-                    <div className="absolute inset-0 z-10 flex flex-col justify-between pt-[27.8%] pb-[6.5%] px-[6.5%] font-serif text-slate-950">
+                    {/* Document Text Overlay: Positioned strictly below the top judicial green stamp artwork and above the bottom slogan */}
+                    <div className="absolute top-[28.5%] bottom-[7.5%] left-[6.5%] right-[6.5%] z-10 flex flex-col justify-between font-serif text-slate-950">
                       {/* Top Serial Number & Centered Title */}
                       <div className="flex items-center justify-between pb-1">
                         <span className="text-[11px] sm:text-[13px] font-mono font-bold tracking-wider text-slate-900">
@@ -959,23 +990,16 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                     className="relative w-full max-w-[760px] mx-auto shadow-md rounded overflow-hidden select-none border border-slate-300"
                     style={{ aspectRatio: '1684 / 2528' }}
                   >
-                    {/* The Authentic Clean JBC Letterhead Canvas */}
+                    {/* The Authentic Clean JBC Letterhead Canvas (Already contains official top header and title) */}
                     <img
                       src="/documents/insurance_clean.jpg"
                       alt="Jiban Bima Corporation Letterhead"
                       className="absolute inset-0 w-full h-full object-fill pointer-events-none select-none"
                     />
 
-                    {/* Overlay Content positioned between Header and Footer */}
-                    <div className="absolute inset-0 z-10 flex flex-col justify-between pt-[15.5%] pb-[19%] px-[7.5%] font-sans text-slate-950">
-                      <div className="space-y-2 sm:space-y-3 md:space-y-4">
-                        {/* Title */}
-                        <div className="text-center py-0.5">
-                          <h3 className="font-black text-xs sm:text-sm md:text-base uppercase underline underline-offset-4 text-slate-950 tracking-wide">
-                            বীমা পলিসি বিবরণী
-                          </h3>
-                        </div>
-
+                    {/* Overlay Content positioned precisely below the printed title and above the bottom footer */}
+                    <div className="absolute top-[16.5%] bottom-[19%] left-[7.5%] right-[7.5%] z-10 flex flex-col justify-between font-sans text-slate-950">
+                      <div className="space-y-3 sm:space-y-4">
                         {/* Content with Photo on Top Right */}
                         <div className="flex items-start justify-between gap-3 text-[10px] sm:text-[11px] md:text-[12px] leading-tight">
                           <div className="space-y-1 sm:space-y-1.5 text-slate-950 flex-1">
@@ -1013,7 +1037,7 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                         </div>
 
                         {/* Policy Text */}
-                        <div className="text-[9.5px] sm:text-[10.5px] md:text-[11px] leading-relaxed text-slate-900 space-y-1 sm:space-y-1.5 text-justify">
+                        <div className="text-[9.5px] sm:text-[10.5px] md:text-[11px] leading-relaxed text-slate-900 space-y-1.5 text-justify">
                           <p>
                             জনাব {docFields.name}, এনআইডি: {docFields.nid} জীবন বীমা কর্পোরেশনে একটি সাধারণ বীমা পলিসি গ্রহণ করেছেন। এই পলিসির মেয়াদ 10 বছর পর্যন্ত।
                           </p>

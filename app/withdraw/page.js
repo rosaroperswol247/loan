@@ -179,19 +179,34 @@ export default function WithdrawPage() {
       {/* Main Container */}
       <main className="max-w-md w-full mx-auto px-4 py-4 space-y-4">
 
-        {/* Pending loan notice if user visits before approval */}
-        {loan?.status === 'pending' && (
-          <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 text-amber-900 space-y-2 shadow-sm">
-            <div className="flex items-center space-x-2 font-bold text-sm text-amber-800">
-              <AlertTriangle size={18} className="text-amber-600" />
-              <span>ঋণ আবেদন পর্যালোচনায় রয়েছে (Pending)</span>
+        {/* If loan is NOT approved, block withdrawal completely! */}
+        {(!loan || loan.status !== 'approved') ? (
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 text-center space-y-4 my-6">
+            <div className="w-16 h-16 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto shadow-inner">
+              <AlertTriangle size={32} />
             </div>
-            <p className="text-xs text-amber-800 leading-relaxed">
-              আপনার ঋণ আবেদনটি বর্তমানে ক্রেডিট কমিটির পর্যালোচনায় রয়েছে। এডমিন কর্তৃক আবেদন অনুমোদনের পর চূড়ান্ত উত্তোলন সম্পন্ন করা যাবে।
-            </p>
+            <div className="space-y-1.5">
+              <h2 className="font-black text-base text-slate-900">
+                {loan?.status === 'rejected' ? 'ঋণ আবেদন বাতিল করা হয়েছে' : 'ঋণ এখনও অনুমোদিত হয়নি (Pending)'}
+              </h2>
+              <p className="text-xs text-slate-600 leading-relaxed max-w-xs mx-auto">
+                {loan?.status === 'rejected'
+                  ? 'আপনার ঋণ আবেদনটি ব্যাংক কর্তৃপক্ষ কর্তৃক বাতিল করা হয়েছে। বিস্তারিত তথ্যের জন্য গ্রাহক সেবায় যোগাযোগ করুন।'
+                  : 'ব্যাংক কর্তৃপক্ষ এখনও আপনার ঋণ অনুমোদন করেনি। আপনার আবেদন বর্তমানে পর্যালোচনায় (Pending) রয়েছে। এডমিন কর্তৃক ঋণ অনুমোদনের পরেই কেবল টাকা উত্তোলনের সুবিধা সক্রিয় হবে।'}
+              </p>
+            </div>
+            <div className="pt-2">
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center space-x-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-95"
+              >
+                <ArrowLeft size={14} />
+                <span>ড্যাশবোর্ডে ফিরে যান</span>
+              </Link>
+            </div>
           </div>
-        )}
-        
+        ) : (
+          <>
         {/* CARD 1: ব্যবহারকারীর তথ্য (User Information Card matching Video 4 0:14) */}
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 space-y-3">
           <div className="flex items-center space-x-2 border-b border-slate-100 pb-2 text-slate-800 font-bold text-sm">
@@ -441,7 +456,8 @@ export default function WithdrawPage() {
             )}
           </button>
         </div>
-
+        </>
+      )}
       </main>
     </div>
   );

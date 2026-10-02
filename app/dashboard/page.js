@@ -380,13 +380,19 @@ export default function CustomerDashboardPage() {
                             ৳ {formatBanglaNumber(ntc.amountToPay)}
                           </span>
                         </div>
-                        <Link
-                          href="/withdraw"
-                          className="px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-md transition-all flex items-center space-x-1"
-                        >
-                          <Wallet size={13} />
-                          <span>পরিশোধ ও উত্তোলন</span>
-                        </Link>
+                        {loan?.status === 'approved' ? (
+                          <Link
+                            href="/withdraw"
+                            className="px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-md transition-all flex items-center space-x-1 active:scale-95"
+                          >
+                            <Wallet size={13} />
+                            <span>পরিশোধ ও উত্তোলন</span>
+                          </Link>
+                        ) : (
+                          <span className="px-3 py-1.5 rounded-lg bg-white/20 text-white/80 font-semibold text-[11px] flex items-center space-x-1 cursor-not-allowed">
+                            <span>অনুমোদনের পর প্রযোজ্য</span>
+                          </span>
+                        )}
                       </div>
                     )}
 

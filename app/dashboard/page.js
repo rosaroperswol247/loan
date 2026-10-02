@@ -347,64 +347,103 @@ export default function CustomerDashboardPage() {
               </div>
             )}
 
-            {/* In-Mail / Staff Notices (Matches Video 2 & Video 4) */}
-            {notices && notices.length > 0 && (
-              <div className="space-y-3">
-                {notices.map((ntc) => (
-                  <div
-                    key={ntc.id}
-                    className="bg-gradient-to-r from-purple-900 to-indigo-950 text-white rounded-2xl p-4 shadow-xl border border-purple-500/40 space-y-3 relative overflow-hidden"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-8 h-8 rounded-full bg-purple-500/30 text-purple-300 flex items-center justify-center">
-                          <Bell size={16} />
-                        </div>
-                        <div>
-                          <span className="font-extrabold text-sm text-purple-200 block">
-                            জরুরি নোটিশ: {ntc.reason || ntc.title}
+            {/* Approved Reasons Card (e.g. সঞ্চয় / জীবন বীমা approved by admin) */}
+            {notices && notices.filter(n => n.status === 'approved').length > 0 && (
+              <div className="bg-gradient-to-r from-emerald-950/80 via-teal-950/80 to-slate-900 border border-emerald-500/50 rounded-2xl p-4 shadow-xl space-y-2.5">
+                <div className="flex items-center space-x-2 text-emerald-400 font-bold text-xs border-b border-emerald-800/60 pb-2">
+                  <CheckCircle size={16} className="text-emerald-400" />
+                  <span>অনুমোদিত ধাপসমূহ (Approved Steps)</span>
+                </div>
+                <div className="space-y-2">
+                  {notices.filter(n => n.status === 'approved').map((an) => (
+                    <div
+                      key={an.id}
+                      className="bg-black/40 border border-emerald-500/30 rounded-xl p-3 flex items-center justify-between text-xs"
+                    >
+                      <div className="space-y-0.5">
+                        <div className="flex items-center space-x-2">
+                          <CheckCircle size={14} className="text-emerald-400 flex-shrink-0" />
+                          <span className="font-extrabold text-white text-sm">
+                            {an.reason || an.title}
                           </span>
-                          <span className="text-[10px] text-purple-300">MyBank কর্তৃপক্ষ প্রেরিত বার্তা</span>
                         </div>
+                        <span className="text-[11px] text-emerald-300 block pl-5">
+                          যাচাইকরণ সম্পন্ন ও ফি অনুমোদিত হয়েছে
+                        </span>
                       </div>
-                      <span className="text-[10px] bg-amber-400 text-amber-950 font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                        পরিশোধযোগ্য
-                      </span>
-                    </div>
-
-                    {(ntc.amountToPay > 0) && (
-                      <div className="bg-black/30 rounded-xl p-3 border border-white/10 flex items-center justify-between">
-                        <div>
-                          <span className="text-[11px] text-purple-200 block">নির্ধারিত ফি / সঞ্চয়ের পরিমাণ:</span>
-                          <span className="text-xl font-black text-amber-300 font-mono tracking-tight">
-                            ৳ {formatBanglaNumber(ntc.amountToPay)}
-                          </span>
-                        </div>
-                        {loan?.status === 'approved' ? (
-                          <Link
-                            href="/withdraw"
-                            className="px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-md transition-all flex items-center space-x-1 active:scale-95"
-                          >
-                            <Wallet size={13} />
-                            <span>পরিশোধ ও উত্তোলন</span>
-                          </Link>
-                        ) : (
-                          <span className="px-3 py-1.5 rounded-lg bg-white/20 text-white/80 font-semibold text-[11px] flex items-center space-x-1 cursor-not-allowed">
-                            <span>অনুমোদনের পর প্রযোজ্য</span>
+                      <div className="text-right flex-shrink-0">
+                        <span className="text-[10px] font-black bg-emerald-500 text-white px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-block">
+                          APPROVED
+                        </span>
+                        {an.amountToPay > 0 && (
+                          <span className="font-mono font-bold text-emerald-300 text-xs block mt-0.5">
+                            ৳ {formatBanglaNumber(an.amountToPay)}
                           </span>
                         )}
                       </div>
-                    )}
-
-                    {(ntc.description || ntc.message) && (
-                      <p className="text-xs text-purple-100 bg-white/5 p-2.5 rounded-lg leading-relaxed border border-white/5">
-                        {ntc.description || ntc.message}
-                      </p>
-                    )}
-                  </div>
-                ))}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
+
+            {/* Active Urgent Notice Card (Pending reason like জীবন বীমা / সরকারি ভ্যাট / সঞ্চয়) */}
+            {(() => {
+              const pendingNotices = (notices || []).filter(n => n.status !== 'approved');
+              const activeNotice = pendingNotices.length > 0 ? pendingNotices[0] : null;
+              if (!activeNotice) return null;
+
+              return (
+                <div className="bg-gradient-to-r from-purple-900 to-indigo-950 text-white rounded-2xl p-4 shadow-xl border border-purple-500/40 space-y-3 relative overflow-hidden">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-8 h-8 rounded-full bg-purple-500/30 text-purple-300 flex items-center justify-center">
+                        <Bell size={16} />
+                      </div>
+                      <div>
+                        <span className="font-extrabold text-sm text-purple-200 block">
+                          জরুরি নোটিশ: {activeNotice.reason || activeNotice.title}
+                        </span>
+                        <span className="text-[10px] text-purple-300">MyBank কর্তৃপক্ষ প্রেরিত বার্তা</span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] bg-amber-400 text-amber-950 font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                      পরিশোধযোগ্য
+                    </span>
+                  </div>
+
+                  {(activeNotice.amountToPay > 0) && (
+                    <div className="bg-black/30 rounded-xl p-3 border border-white/10 flex items-center justify-between">
+                      <div>
+                        <span className="text-[11px] text-purple-200 block">নির্ধারিত ফি / সঞ্চয়ের পরিমাণ:</span>
+                        <span className="text-xl font-black text-amber-300 font-mono tracking-tight">
+                          ৳ {formatBanglaNumber(activeNotice.amountToPay)}
+                        </span>
+                      </div>
+                      {loan?.status === 'approved' ? (
+                        <Link
+                          href="/withdraw"
+                          className="px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-md transition-all flex items-center space-x-1 active:scale-95"
+                        >
+                          <Wallet size={13} />
+                          <span>পরিশোধ ও উত্তোলন</span>
+                        </Link>
+                      ) : (
+                        <span className="px-3 py-1.5 rounded-lg bg-white/20 text-white/80 font-semibold text-[11px] flex items-center space-x-1 cursor-not-allowed">
+                          <span>অনুমোদনের পর প্রযোজ্য</span>
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {(activeNotice.description || activeNotice.message) && (
+                    <p className="text-xs text-purple-100 bg-white/5 p-2.5 rounded-lg leading-relaxed border border-white/5">
+                      {activeNotice.description || activeNotice.message}
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Loan Status & Action Card */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 space-y-3.5">

@@ -1,6 +1,35 @@
 import { NextResponse } from 'next/server';
 import { forbiddenResponse, getAuthContext, unauthorizedResponse } from '@/lib/api-auth';
 
+export const dynamic = 'force-dynamic';
+
+function toClientNotice(notice) {
+  let amountToPay = 0;
+  let description = notice.message || '';
+  try {
+    const parsed = JSON.parse(notice.message);
+    if (parsed && typeof parsed === 'object') {
+      if (parsed.amountToPay !== undefined) amountToPay = Number(parsed.amountToPay);
+      if (parsed.description !== undefined) description = parsed.description;
+    }
+  } catch {
+    description = notice.message || '';
+  }
+  const status = notice.status === 'read' ? 'approved' : (notice.status === 'unread' ? 'pending' : (notice.status || 'pending'));
+  return {
+    id: notice.id,
+    userId: notice.user_id,
+    loanId: notice.loan_id,
+    title: notice.title,
+    reason: notice.title,
+    amountToPay,
+    description,
+    message: description,
+    status,
+    createdAt: notice.created_at,
+  };
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -14,19 +43,19 @@ export async function POST(request) {
       return NextResponse.json({ success: false, message: 'গ্রাহক ও কারণ নির্বাচন করুন' }, { status: 400 });
     }
 
-    // If upgrading: mark all prior notices for this user as 'approved'
-    if (isUpgrade) {
-      await supabase
-        .from('notices')
-        .update({ status: 'approved' })
-        .eq('user_id', userId)
-        .neq('status', 'approved');
-    }
+    // When upgrading OR creating/updating active notice:
+    // Mark prior active notices as 'approved' so the new reason becomes the active notice
+    await supabase
+      .from('notices')
+      .update({ status: 'approved' })
+      .eq('user_id', userId)
+      .neq('status', 'approved');
 
-    // Store structured content in message field (JSON format) so amountToPay is preserved in Supabase
+    // Store structured content in message field (JSON format)
     const payload = JSON.stringify({
       amountToPay: Number(amountToPay) || 0,
-      description: description || message || ''
+      description: description || message || '',
+      status: 'pending'
     });
 
     const { data, error } = await supabase
@@ -43,23 +72,25 @@ export async function POST(request) {
 
     if (error) throw error;
 
-    const newNotice = {
-      id: data.id,
-      userId: data.user_id,
-      loanId: data.loan_id,
-      title: data.title,
-      reason: data.title,
-      amountToPay: Number(amountToPay) || 0,
-      description: description || message || '',
-      message: description || message || '',
-      status: data.status,
-      createdAt: data.created_at,
-    };
+    // Fetch updated list of all notices for this user
+    const { data: allNoticesData } = await supabase
+      .from('notices')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
 
-    return NextResponse.json({ success: true, message: isUpgrade ? 'সফলভাবে আপগ্রেড করা হয়েছে!' : 'নোটিশ সফলভাবে পাঠানো হয়েছে', notice: newNotice });
+    const clientNotices = (allNoticesData || []).map(toClientNotice);
+    const newNotice = toClientNotice(data);
+
+    return NextResponse.json({
+      success: true,
+      message: isUpgrade ? 'সফলভাবে আপগ্রেড করা হয়েছে! পূর্ববর্তী কারণটি অনুমোদিত হিসেবে সংরক্ষিত হয়েছে।' : 'নোটিশ সফলভাবে পাঠানো হয়েছে',
+      notice: newNotice,
+      notices: clientNotices
+    });
   } catch (err) {
     console.error('Create notice error:', err);
-    return NextResponse.json({ success: false, message: 'সার্ভার ত্রুটি' }, { status: 500 });
+    return NextResponse.json({ success: false, message: 'সার্ভার ত্রুটি: ' + (err?.message || 'নোটিশ সংরক্ষণ করা যায়নি') }, { status: 500 });
   }
 }
 
@@ -75,16 +106,29 @@ export async function PATCH(request) {
       return NextResponse.json({ success: false, message: 'Notice ID ও স্ট্যাটাস প্রয়োজন' }, { status: 400 });
     }
 
+    const nextStatus = status === 'read' ? 'approved' : status;
     const { data, error } = await supabase
       .from('notices')
-      .update({ status })
+      .update({ status: nextStatus })
       .eq('id', id)
       .select('*')
       .single();
 
     if (error) throw error;
 
-    return NextResponse.json({ success: true, message: 'নোটিশ স্ট্যাটাস সফলভাবে আপডেট হয়েছে', notice: data });
+    // Fetch all updated notices for this user
+    const { data: allNoticesData } = await supabase
+      .from('notices')
+      .select('*')
+      .eq('user_id', data.user_id)
+      .order('created_at', { ascending: false });
+
+    return NextResponse.json({
+      success: true,
+      message: 'নোটিশ স্ট্যাটাস সফলভাবে আপডেট হয়েছে',
+      notice: toClientNotice(data),
+      notices: (allNoticesData || []).map(toClientNotice)
+    });
   } catch (err) {
     console.error('Update notice error:', err);
     return NextResponse.json({ success: false, message: 'সার্ভার ত্রুটি' }, { status: 500 });
@@ -104,10 +148,30 @@ export async function DELETE(request) {
       return NextResponse.json({ success: false, message: 'Notice ID প্রয়োজন' }, { status: 400 });
     }
 
+    const { data: targetNotice } = await supabase
+      .from('notices')
+      .select('user_id')
+      .eq('id', noticeId)
+      .maybeSingle();
+
     const { error } = await supabase.from('notices').delete().eq('id', noticeId);
     if (error) throw error;
 
-    return NextResponse.json({ success: true, message: 'নোটিশ মুছে ফেলা হয়েছে' });
+    let remainingNotices = [];
+    if (targetNotice?.user_id) {
+      const { data: rem } = await supabase
+        .from('notices')
+        .select('*')
+        .eq('user_id', targetNotice.user_id)
+        .order('created_at', { ascending: false });
+      remainingNotices = (rem || []).map(toClientNotice);
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'নোটিশ মুছে ফেলা হয়েছে',
+      notices: remainingNotices
+    });
   } catch (err) {
     console.error('Delete notice error:', err);
     return NextResponse.json({ success: false, message: 'সার্ভার ত্রুটি' }, { status: 500 });

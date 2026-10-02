@@ -126,6 +126,7 @@ export async function GET(request) {
       } catch {
         description = notice.message || '';
       }
+      const status = notice.status === 'read' ? 'approved' : (notice.status === 'unread' ? 'pending' : (notice.status || 'pending'));
       return {
         id: notice.id,
         userId: notice.user_id,
@@ -135,7 +136,7 @@ export async function GET(request) {
         amountToPay,
         description,
         message: description,
-        status: notice.status,
+        status,
         createdAt: notice.created_at,
       };
     });
@@ -295,6 +296,7 @@ export async function PATCH(request) {
       } catch {
         description = notice.message || '';
       }
+      const status = notice.status === 'read' ? 'approved' : (notice.status === 'unread' ? 'pending' : (notice.status || 'pending'));
       return {
         id: notice.id,
         userId: notice.user_id,
@@ -304,7 +306,7 @@ export async function PATCH(request) {
         amountToPay,
         description,
         message: description,
-        status: notice.status,
+        status,
         createdAt: notice.created_at,
       };
     });

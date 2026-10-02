@@ -23,12 +23,16 @@ export async function GET(request) {
     const notices = (data || []).map(notice => {
       let amountToPay = 0;
       let description = notice.message || '';
+      let noticeStatus = notice.status === 'read' ? 'approved' : (notice.status === 'unread' ? 'pending' : (notice.status || 'pending'));
 
       try {
         const parsed = JSON.parse(notice.message);
         if (parsed && typeof parsed === 'object') {
           if (parsed.amountToPay !== undefined) amountToPay = Number(parsed.amountToPay);
           if (parsed.description !== undefined) description = parsed.description;
+          if (parsed.status !== undefined && notice.status === 'pending') {
+            noticeStatus = parsed.status;
+          }
         }
       } catch {
         // Plain text fallback
@@ -44,7 +48,7 @@ export async function GET(request) {
         amountToPay,
         description,
         message: description,
-        status: notice.status,
+        status: noticeStatus,
         createdAt: notice.created_at,
       };
     });

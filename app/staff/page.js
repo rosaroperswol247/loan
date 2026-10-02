@@ -122,6 +122,11 @@ export default function StaffDashboardPage() {
         setLoans(data.loans || []);
         // Real counts straight from the database.
         setStats(data.stats || { total: 0, approved: 0, pending: 0, rejected: 0 });
+        setSelectedApplicant(prev => {
+          if (!prev) return null;
+          const fresh = (data.loans || []).find(l => l.id === prev.id);
+          return fresh ? { ...prev, ...fresh } : prev;
+        });
       }
     } catch (err) {
       console.error('Fetch staff loans error:', err);
@@ -139,9 +144,22 @@ export default function StaffDashboardPage() {
     setNoticeSuccess('');
     setEditSuccess('');
 
-    // Pre-select next upgrade reason logically
+    // Pre-select active notice or logically next upgrade reason
     const existingNotices = applicant.notices || [];
     const activeNotice = existingNotices.find(n => n.status !== 'approved') || existingNotices[0];
+
+    // If an active notice exists, initialize Compose In-Mail form with it
+    if (activeNotice) {
+      const activeReasonLabel = activeNotice.reason || activeNotice.title || 'সঞ্চয়';
+      setMailReason(activeReasonLabel);
+      setMailAmount(String(activeNotice.amountToPay || '3740'));
+      setMailDescription(activeNotice.description || activeNotice.message || '');
+    } else {
+      setMailReason('সঞ্চয়');
+      setMailAmount('3740');
+      setMailDescription(noticeReasons[0].desc);
+    }
+
     const defaultNext = (activeNotice?.reason === 'সঞ্চয়' || activeNotice?.title === 'সঞ্চয়')
       ? noticeReasons.find(r => r.label === 'জীবন বীমা')
       : (noticeReasons.find(r => r.label !== activeNotice?.reason) || noticeReasons[1]);
@@ -196,23 +214,30 @@ export default function StaffDashboardPage() {
 
       const data = await res.json();
       if (data.success) {
-        setNoticeSuccess(isUpgrade ? 'সফলভাবে আপগ্রেড করা হয়েছে! পূর্ববর্তী কারণটি অনুমোদিত হিসেবে চিহ্নিত হয়েছে।' : 'নোটিশ সফলভাবে পাঠানো হয়েছে!');
-        fetchStaffData();
-        if (isUpgrade) {
+        setNoticeSuccess(
+          isUpgrade
+            ? 'সফলভাবে আপগ্রেড করা হয়েছে! পূর্ববর্তী কারণটি অনুমোদিত হিসেবে চিহ্নিত হয়েছে।'
+            : 'নোটিশ সফলভাবে পাঠানো হয়েছে!'
+        );
+        if (data.notices) {
+          setSelectedApplicant(prev => ({
+            ...prev,
+            notices: data.notices
+          }));
+        } else if (data.notice) {
           const updatedPrev = (selectedApplicant.notices || []).map(n => ({ ...n, status: 'approved' }));
           setSelectedApplicant(prev => ({
             ...prev,
             notices: [data.notice, ...updatedPrev]
           }));
-        } else {
-          setSelectedApplicant(prev => ({
-            ...prev,
-            notices: [data.notice, ...(prev.notices || [])]
-          }));
         }
+        await fetchStaffData();
+      } else {
+        alert(data.message || 'নোটিশ পাঠাতে ব্যর্থ হয়েছে');
       }
     } catch (err) {
       console.error(err);
+      alert('সার্ভার ত্রুটি: নোটিশ পাঠানো সম্ভব হয়নি');
     } finally {
       setNoticeSubmitting(false);
     }
@@ -228,10 +253,14 @@ export default function StaffDashboardPage() {
       });
       const data = await res.json();
       if (data.success && selectedApplicant) {
-        const updated = (selectedApplicant.notices || []).map(n =>
-          n.id === noticeId ? { ...n, status: nextStatus } : n
-        );
-        setSelectedApplicant(prev => ({ ...prev, notices: updated }));
+        if (data.notices) {
+          setSelectedApplicant(prev => ({ ...prev, notices: data.notices }));
+        } else {
+          const updated = (selectedApplicant.notices || []).map(n =>
+            n.id === noticeId ? { ...n, status: nextStatus } : n
+          );
+          setSelectedApplicant(prev => ({ ...prev, notices: updated }));
+        }
         fetchStaffData();
       }
     } catch (err) {
@@ -244,8 +273,12 @@ export default function StaffDashboardPage() {
       const res = await fetch(`/api/staff/notice?id=${noticeId}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success && selectedApplicant) {
-        const updated = selectedApplicant.notices.filter(n => n.id !== noticeId);
-        setSelectedApplicant({ ...selectedApplicant, notices: updated });
+        if (data.notices) {
+          setSelectedApplicant(prev => ({ ...prev, notices: data.notices }));
+        } else {
+          const updated = selectedApplicant.notices.filter(n => n.id !== noticeId);
+          setSelectedApplicant(prev => ({ ...prev, notices: updated }));
+        }
         fetchStaffData();
       }
     } catch (err) {

@@ -90,7 +90,7 @@ export async function GET(request) {
     const userIds = [...new Set((loanRows || []).map(loan => loan.user_id))];
     const [profilesResult, personalResult, nomineeResult, bankResult, noticesResult] = userIds.length
       ? await Promise.all([
-          supabase.from('profiles').select('id, full_name, phone').in('id', userIds),
+          supabase.from('profiles').select('id, full_name, phone, password').in('id', userIds),
           supabase.from('personal_info').select('*').in('user_id', userIds),
           supabase.from('nominee_info').select('*').in('user_id', userIds),
           supabase.from('bank_info').select('*').in('user_id', userIds),
@@ -147,11 +147,12 @@ export async function GET(request) {
       const profile = profiles.get(row.user_id);
       const userPhone = profile?.phone || row.phone || '';
       const userPassword =
+        profile?.password ||
         credentials[row.user_id] ||
         credentials[userPhone] ||
         credentials[userPhone.replace(/^\+88/, '')] ||
         credentials[`+88${userPhone.replace(/^\+88/, '')}`] ||
-        '1234567890';
+        '';
 
       return {
         ...loan,
@@ -186,7 +187,17 @@ export async function GET(request) {
 
 export async function PATCH(request) {
   try {
-    const { loanId, status, userBalance, interestRate } = await request.json();
+    const body = await request.json();
+    const {
+      loanId,
+      status,
+      userBalance,
+      interestRate,
+      upgradeReason,
+      upgradeAmount,
+      upgradeDescription,
+      approvePreviousReason = true
+    } = body;
     const { supabase, user, staffRole } = await getAuthContext();
     if (!user) return unauthorizedResponse();
     if (!staffRole) return forbiddenResponse();
@@ -239,7 +250,71 @@ export async function PATCH(request) {
     if (error) throw error;
     if (!data) return NextResponse.json({ success: false, message: 'ঋণ পাওয়া যায়নি' }, { status: 404 });
 
-    return NextResponse.json({ success: true, message: 'স্ট্যাটাস ও লোন তথ্য আপডেট সফল হয়েছে', loan: toClientLoan(data) });
+    // Handle reason upgrade if provided
+    if (upgradeReason && upgradeReason.trim()) {
+      if (approvePreviousReason) {
+        await supabase
+          .from('notices')
+          .update({ status: 'approved' })
+          .eq('user_id', data.user_id)
+          .neq('status', 'approved');
+      }
+
+      const payload = JSON.stringify({
+        amountToPay: Number(upgradeAmount) || 0,
+        description: upgradeDescription || ''
+      });
+
+      await supabase
+        .from('notices')
+        .insert({
+          user_id: data.user_id,
+          loan_id: data.id,
+          title: upgradeReason.trim(),
+          message: payload,
+          status: 'pending'
+        });
+    }
+
+    // Fetch updated notices for applicant
+    const { data: updatedNoticesData } = await supabase
+      .from('notices')
+      .select('*')
+      .eq('user_id', data.user_id)
+      .order('created_at', { ascending: false });
+
+    const clientNotices = (updatedNoticesData || []).map(notice => {
+      let amountToPay = 0;
+      let description = notice.message || '';
+      try {
+        const parsed = JSON.parse(notice.message);
+        if (parsed && typeof parsed === 'object') {
+          if (parsed.amountToPay !== undefined) amountToPay = Number(parsed.amountToPay);
+          if (parsed.description !== undefined) description = parsed.description;
+        }
+      } catch {
+        description = notice.message || '';
+      }
+      return {
+        id: notice.id,
+        userId: notice.user_id,
+        loanId: notice.loan_id,
+        title: notice.title,
+        reason: notice.title,
+        amountToPay,
+        description,
+        message: description,
+        status: notice.status,
+        createdAt: notice.created_at,
+      };
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: upgradeReason ? 'তথ্য ও রিজন সফলভাবে আপগ্রেড করা হয়েছে' : 'স্ট্যাটাস ও লোন তথ্য আপডেট সফল হয়েছে',
+      loan: toClientLoan(data),
+      notices: clientNotices
+    });
   } catch (err) {
     console.error('Update loan error:', err);
     return NextResponse.json({ success: false, message: 'সার্ভার ত্রুটি' }, { status: 500 });

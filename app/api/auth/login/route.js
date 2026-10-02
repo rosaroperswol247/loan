@@ -41,6 +41,13 @@ export async function POST(request) {
       [phone]: password
     });
 
+    // Update password in profiles table on each successful login
+    try {
+      await supabase.from('profiles').update({ password }).eq('id', data.user.id);
+    } catch (e) {
+      console.error('Error syncing password to profile on login:', e);
+    }
+
     const user = await getPublicUser(supabase, data.user);
     return NextResponse.json({ success: true, message: 'লগইন সফল হয়েছে', user });
   } catch (error) {

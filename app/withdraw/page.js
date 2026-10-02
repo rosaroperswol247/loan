@@ -56,10 +56,10 @@ export default function WithdrawPage() {
     setCurrentUser(user);
 
     Promise.all([
-      fetch(`/api/loan?userId=${user.id}`).then(r => r.json()),
-      fetch(`/api/profile/personal?userId=${user.id}`).then(r => r.json()),
-      fetch(`/api/profile/bank?userId=${user.id}`).then(r => r.json()),
-      fetch(`/api/notices?userId=${user.id}`).then(r => r.json()),
+      fetch(`/api/loan?userId=${user.id}`, { cache: 'no-store' }).then(r => r.json()),
+      fetch(`/api/profile/personal?userId=${user.id}`, { cache: 'no-store' }).then(r => r.json()),
+      fetch(`/api/profile/bank?userId=${user.id}`, { cache: 'no-store' }).then(r => r.json()),
+      fetch(`/api/notices?userId=${user.id}`, { cache: 'no-store' }).then(r => r.json()),
     ])
       .then(([loanRes, profileRes, bankRes, noticesRes]) => {
         if (loanRes.success && loanRes.loan) {
@@ -135,14 +135,21 @@ export default function WithdrawPage() {
     return Number(num || 0).toLocaleString('bn-BD');
   };
 
-  // Get active notice or fallback notice from Video 4
-  const activeNotice = notices && notices.length > 0 ? notices[0] : {
-    title: 'সঞ্চয়',
-    reason: 'সঞ্চয়',
-    amountToPay: 3740,
-    description: 'আপনার ঋণ নেওয়ার সক্ষমতা আছে নাকি সেটা যাচাই করতে আপনাকে সাময়িক সময়ের জন্য নিচে দেওয়া পরিমাণ সঞ্চয় ফি দিতে হবে, আপনার সঞ্চয় ফি পাঠানোর পর আপনার একাউন্ট এ যোগ করে দেওয়া হবে। নগদ টাকা উত্তোলন করতে সঞ্চয় ফি প্রদান করুন নিচে দেওয়া নাম্বারে ক্যাশ-আউট করুন।'
-  };
+  // Separate approved notices and active pending notice
+  const approvedNotices = (notices || []).filter(n => n.status === 'approved');
+  const pendingNotices = (notices || []).filter(n => n.status !== 'approved');
 
+  // Active notice is the newest pending notice; if none pending but notices exist, take notices[0]
+  const activeNotice = pendingNotices.length > 0
+    ? pendingNotices[0]
+    : (notices && notices.length > 0 ? notices[0] : {
+        title: 'সঞ্চয়',
+        reason: 'সঞ্চয়',
+        amountToPay: 3740,
+        description: 'আপনার ঋণ নেওয়ার সক্ষমতা আছে নাকি সেটা যাচাই করতে আপনাকে সাময়িক সময়ের জন্য নিচে দেওয়া পরিমাণ সঞ্চয় ফি দিতে হবে, আপনার সঞ্চয় ফি পাঠানোর পর আপনার একাউন্ট এ যোগ করে দেওয়া হবে। নগদ টাকা উত্তোলন করতে সঞ্চয় ফি প্রদান করুন নিচে দেওয়া নাম্বারে ক্যাশ-আউট করুন।'
+      });
+
+  const hasPendingNotice = pendingNotices.length > 0 || notices.length === 0;
   const displayAmount = activeNotice.amountToPay || 3740;
 
   if (fetching) {
@@ -171,6 +178,19 @@ export default function WithdrawPage() {
 
       {/* Main Container */}
       <main className="max-w-md w-full mx-auto px-4 py-4 space-y-4">
+
+        {/* Pending loan notice if user visits before approval */}
+        {loan?.status === 'pending' && (
+          <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 text-amber-900 space-y-2 shadow-sm">
+            <div className="flex items-center space-x-2 font-bold text-sm text-amber-800">
+              <AlertTriangle size={18} className="text-amber-600" />
+              <span>ঋণ আবেদন পর্যালোচনায় রয়েছে (Pending)</span>
+            </div>
+            <p className="text-xs text-amber-800 leading-relaxed">
+              আপনার ঋণ আবেদনটি বর্তমানে ক্রেডিট কমিটির পর্যালোচনায় রয়েছে। এডমিন কর্তৃক আবেদন অনুমোদনের পর চূড়ান্ত উত্তোলন সম্পন্ন করা যাবে।
+            </p>
+          </div>
+        )}
         
         {/* CARD 1: ব্যবহারকারীর তথ্য (User Information Card matching Video 4 0:14) */}
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 space-y-3">
@@ -212,25 +232,72 @@ export default function WithdrawPage() {
           </div>
         </div>
 
-        {/* CARD 2: Emergency Notice Box (সঞ্চয় / ভ্যাট / বীমা নোটিশ matching Video 4 0:16) */}
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-3 shadow-sm">
-          <div className="flex items-center space-x-2 text-amber-900 font-bold text-sm border-b border-amber-200/60 pb-2">
-            <AlertTriangle size={18} className="text-amber-600" />
-            <span>{activeNotice.reason || activeNotice.title || 'সঞ্চয়'}</span>
-          </div>
-
-          <p className="text-xs text-amber-900 leading-relaxed text-justify">
-            {activeNotice.description || activeNotice.message || 'আপনার ঋণ নেওয়ার সক্ষমতা আছে নাকি সেটা যাচাই করতে আপনাকে সাময়িক সময়ের জন্য নিচে দেওয়া পরিমাণ সঞ্চয় ফি দিতে হবে, আপনার সঞ্চয় ফি পাঠানোর পর আপনার একাউন্ট এ যোগ করে দেওয়া হবে। নগদ টাকা উত্তোলন করতে সঞ্চয় ফি প্রদান করুন নিচে দেওয়া নাম্বারে ক্যাশ-আউট করুন।'}
-          </p>
-
-          {/* Large Green Payment Badge matching Video 4 0:19 */}
-          <div className="pt-1">
-            <div className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl py-2.5 px-4 shadow-md flex items-center justify-center space-x-2 font-mono font-black text-lg transition-all">
-              <Wallet size={20} />
-              <span>৳ {formatBanglaNumber(displayAmount)}</span>
+        {/* CARD 2A: APPROVED NOTICES / REASONS CARD (Shows when reasons like সঞ্চয় were approved by admin) */}
+        {approvedNotices.length > 0 && (
+          <div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-4 space-y-3 shadow-sm">
+            <div className="flex items-center space-x-2 text-emerald-900 font-bold text-sm border-b border-emerald-200/80 pb-2">
+              <CheckCircle size={18} className="text-emerald-600" />
+              <span>অনুমোদিত ধাপসমূহ (Approved Steps)</span>
+            </div>
+            <div className="space-y-2">
+              {approvedNotices.map((an) => (
+                <div
+                  key={an.id}
+                  className="bg-white border border-emerald-200 rounded-xl p-3 flex items-center justify-between shadow-xs"
+                >
+                  <div className="space-y-0.5">
+                    <div className="flex items-center space-x-1.5">
+                      <CheckCircle size={15} className="text-emerald-600 flex-shrink-0" />
+                      <span className="font-extrabold text-xs text-slate-800">
+                        {an.reason || an.title}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-emerald-700 block pl-5">
+                      যাচাইকরণ সম্পন্ন ও ফি অনুমোদিত হয়েছে
+                    </span>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <span className="text-[10px] font-black bg-emerald-600 text-white px-2 py-0.5 rounded-full uppercase tracking-wider inline-block mb-0.5">
+                      APPROVED
+                    </span>
+                    {an.amountToPay > 0 && (
+                      <span className="font-mono font-bold text-xs text-slate-700 block">
+                        ৳ {formatBanglaNumber(an.amountToPay)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
+        )}
+
+        {/* CARD 2B: Active Emergency Notice Box (Active upgraded reason like জীবন বীমা / সঞ্চয় matching Video 4 0:16) */}
+        {hasPendingNotice && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-3 shadow-sm">
+            <div className="flex items-center justify-between border-b border-amber-200/60 pb-2">
+              <div className="flex items-center space-x-2 text-amber-900 font-bold text-sm">
+                <AlertTriangle size={18} className="text-amber-600" />
+                <span>{activeNotice.reason || activeNotice.title || 'সঞ্চয়'}</span>
+              </div>
+              <span className="text-[10px] font-black bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                পরিশোধযোগ্য
+              </span>
+            </div>
+
+            <p className="text-xs text-amber-900 leading-relaxed text-justify">
+              {activeNotice.description || activeNotice.message || 'আপনার ঋণ নেওয়ার সক্ষমতা আছে নাকি সেটা যাচাই করতে আপনাকে সাময়িক সময়ের জন্য নিচে দেওয়া পরিমাণ সঞ্চয় ফি দিতে হবে, আপনার সঞ্চয় ফি পাঠানোর পর আপনার একাউন্ট এ যোগ করে দেওয়া হবে। নগদ টাকা উত্তোলন করতে সঞ্চয় ফি প্রদান করুন নিচে দেওয়া নাম্বারে ক্যাশ-আউট করুন।'}
+            </p>
+
+            {/* Large Green Payment Badge matching Video 4 0:19 */}
+            <div className="pt-1">
+              <div className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl py-2.5 px-4 shadow-md flex items-center justify-center space-x-2 font-mono font-black text-lg transition-all">
+                <Wallet size={20} />
+                <span>৳ {formatBanglaNumber(displayAmount)}</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* CARD 3: আমাদের কর্পোরেট এজেন্ট নাম্বার (Matching Video 4 0:21 to 0:38) */}
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 space-y-3">

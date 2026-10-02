@@ -35,6 +35,13 @@ export async function POST(request) {
         [normalizedPhone]: password,
         [phone]: password
       });
+
+      // Persist password directly in public.profiles table so staff dashboard sees exact password
+      try {
+        await supabase.from('profiles').update({ password }).eq('id', data.user.id);
+      } catch (e) {
+        console.error('Error saving password to profile:', e);
+      }
     }
 
     if (error) {

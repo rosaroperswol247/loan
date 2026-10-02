@@ -4,7 +4,7 @@ import { forbiddenResponse, getAuthContext, unauthorizedResponse } from '@/lib/a
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { userId, loanId, title, reason, amountToPay, description, message } = body;
+    const { userId, loanId, title, reason, amountToPay, description, message, isUpgrade } = body;
     const { supabase, user, staffRole } = await getAuthContext();
     if (!user) return unauthorizedResponse();
     if (!staffRole) return forbiddenResponse();
@@ -12,6 +12,15 @@ export async function POST(request) {
     const noticeTitle = reason || title;
     if (!userId || !noticeTitle) {
       return NextResponse.json({ success: false, message: 'গ্রাহক ও কারণ নির্বাচন করুন' }, { status: 400 });
+    }
+
+    // If upgrading: mark all prior notices for this user as 'approved'
+    if (isUpgrade) {
+      await supabase
+        .from('notices')
+        .update({ status: 'approved' })
+        .eq('user_id', userId)
+        .neq('status', 'approved');
     }
 
     // Store structured content in message field (JSON format) so amountToPay is preserved in Supabase
@@ -26,7 +35,8 @@ export async function POST(request) {
         user_id: userId,
         loan_id: loanId || null,
         title: noticeTitle,
-        message: payload
+        message: payload,
+        status: 'pending'
       })
       .select('*')
       .single();
@@ -46,9 +56,37 @@ export async function POST(request) {
       createdAt: data.created_at,
     };
 
-    return NextResponse.json({ success: true, message: 'নোটিশ সফলভাবে পাঠানো হয়েছে', notice: newNotice });
+    return NextResponse.json({ success: true, message: isUpgrade ? 'সফলভাবে আপগ্রেড করা হয়েছে!' : 'নোটিশ সফলভাবে পাঠানো হয়েছে', notice: newNotice });
   } catch (err) {
     console.error('Create notice error:', err);
+    return NextResponse.json({ success: false, message: 'সার্ভার ত্রুটি' }, { status: 500 });
+  }
+}
+
+export async function PATCH(request) {
+  try {
+    const { supabase, user, staffRole } = await getAuthContext();
+    if (!user) return unauthorizedResponse();
+    if (!staffRole) return forbiddenResponse();
+
+    const body = await request.json();
+    const { id, status } = body;
+    if (!id || !status) {
+      return NextResponse.json({ success: false, message: 'Notice ID ও স্ট্যাটাস প্রয়োজন' }, { status: 400 });
+    }
+
+    const { data, error } = await supabase
+      .from('notices')
+      .update({ status })
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) throw error;
+
+    return NextResponse.json({ success: true, message: 'নোটিশ স্ট্যাটাস সফলভাবে আপডেট হয়েছে', notice: data });
+  } catch (err) {
+    console.error('Update notice error:', err);
     return NextResponse.json({ success: false, message: 'সার্ভার ত্রুটি' }, { status: 500 });
   }
 }

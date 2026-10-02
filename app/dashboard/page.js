@@ -128,11 +128,11 @@ export default function CustomerDashboardPage() {
 
     // Fetch application status and each required information step.
     Promise.all([
-      fetch(`/api/loan?userId=${user.id}`).then(r => r.json()),
-      fetch(`/api/notices?userId=${user.id}`).then(r => r.json()),
-      fetch(`/api/profile/personal?userId=${user.id}`).then(r => r.json()),
-      fetch(`/api/profile/nominee?userId=${user.id}`).then(r => r.json()),
-      fetch(`/api/profile/bank?userId=${user.id}`).then(r => r.json())
+      fetch(`/api/loan?userId=${user.id}`, { cache: 'no-store' }).then(r => r.json()),
+      fetch(`/api/notices?userId=${user.id}`, { cache: 'no-store' }).then(r => r.json()),
+      fetch(`/api/profile/personal?userId=${user.id}`, { cache: 'no-store' }).then(r => r.json()),
+      fetch(`/api/profile/nominee?userId=${user.id}`, { cache: 'no-store' }).then(r => r.json()),
+      fetch(`/api/profile/bank?userId=${user.id}`, { cache: 'no-store' }).then(r => r.json())
     ])
       .then(([loanRes, noticesRes, profileRes, nomineeRes, bankRes]) => {
         if (loanRes.success && loanRes.loan) {
@@ -306,26 +306,46 @@ export default function CustomerDashboardPage() {
               </div>
             </div>
 
-            {/* Prominent Withdrawal Button matching Video 4 (0:11 to 0:13) */}
-            <Link
-              href="/withdraw"
-              className="w-full p-4 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold shadow-lg shadow-blue-600/30 flex items-center justify-between transition-all border border-blue-400/40 group active:scale-[0.99]"
-            >
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white shadow-inner flex-shrink-0">
-                  <CreditCard size={20} />
+            {/* Prominent Withdrawal Button - ONLY shown when admin approves loan */}
+            {loan.status === 'approved' && (
+              <Link
+                href="/withdraw"
+                className="w-full p-4 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold shadow-lg shadow-blue-600/30 flex items-center justify-between transition-all border border-blue-400/40 group active:scale-[0.99]"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white shadow-inner flex-shrink-0">
+                    <CreditCard size={20} />
+                  </div>
+                  <div className="text-left">
+                    <span className="block font-black text-sm sm:text-base leading-tight">
+                      এখনই টাকা উত্তোলন করুন
+                    </span>
+                    <span className="block text-[11px] text-blue-200 font-medium mt-0.5">
+                      আপনার ঋণ অনুমোদিত - তাৎক্ষণিক উত্তোলন করুন
+                    </span>
+                  </div>
                 </div>
-                <div className="text-left">
-                  <span className="block font-black text-sm sm:text-base leading-tight">
-                    এখনই টাকা উত্তোলন করুন
-                  </span>
-                  <span className="block text-[11px] text-blue-200 font-medium mt-0.5">
-                    আপনার ঋণ অনুমোদিত - তাৎক্ষণিক উত্তোলন করুন
-                  </span>
+                <ChevronRight size={20} className="text-blue-200 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            )}
+
+            {loan.status === 'pending' && (
+              <div className="w-full p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-amber-100/70 border border-amber-300 shadow-sm flex items-center justify-between text-amber-950">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-200 text-amber-800 flex items-center justify-center flex-shrink-0 shadow-inner">
+                    <Clock size={20} className="animate-spin" />
+                  </div>
+                  <div className="text-left">
+                    <span className="block font-black text-sm text-amber-900 leading-tight">
+                      আবেদন পর্যালোচনায় রয়েছে (Pending)
+                    </span>
+                    <span className="block text-[11px] text-amber-700 font-medium mt-0.5">
+                      এডমিন কর্তৃক ঋণ অনুমোদনের পর উত্তোলন অপশন সক্রিয় হবে
+                    </span>
+                  </div>
                 </div>
               </div>
-              <ChevronRight size={20} className="text-blue-200 group-hover:translate-x-1 transition-transform" />
-            </Link>
+            )}
 
             {/* In-Mail / Staff Notices (Matches Video 2 & Video 4) */}
             {notices && notices.length > 0 && (

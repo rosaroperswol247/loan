@@ -29,7 +29,10 @@ import {
   Droplets,
   Home,
   Briefcase,
-  AlertTriangle
+  AlertTriangle,
+  Rocket,
+  CheckCircle,
+  RefreshCw
 } from 'lucide-react';
 
 function AttachmentTile({ src, label, onOpen, contain }) {
@@ -92,6 +95,12 @@ export default function StaffDashboardPage() {
   const [editUpdating, setEditUpdating] = useState(false);
   const [editSuccess, setEditSuccess] = useState('');
 
+  // Reason Upgrade State in Applicant Modal
+  const [upgradeReason, setUpgradeReason] = useState('জীবন বীমা');
+  const [upgradeAmount, setUpgradeAmount] = useState('1500');
+  const [upgradeDescription, setUpgradeDescription] = useState('ঋণ সুরক্ষার স্বার্থে জীবন বীমা পলিসি কভার ফি জমা দিতে হবে।');
+  const [includeReasonUpgrade, setIncludeReasonUpgrade] = useState(false);
+
   // Deleting loan state
   const [deletingId, setDeletingId] = useState(null);
 
@@ -129,6 +138,20 @@ export default function StaffDashboardPage() {
     setEditInterestRate(rawRate <= 1 ? (rawRate * 100).toFixed(1) : rawRate.toString());
     setNoticeSuccess('');
     setEditSuccess('');
+
+    // Pre-select next upgrade reason logically
+    const existingNotices = applicant.notices || [];
+    const activeNotice = existingNotices.find(n => n.status !== 'approved') || existingNotices[0];
+    const defaultNext = (activeNotice?.reason === 'সঞ্চয়' || activeNotice?.title === 'সঞ্চয়')
+      ? noticeReasons.find(r => r.label === 'জীবন বীমা')
+      : (noticeReasons.find(r => r.label !== activeNotice?.reason) || noticeReasons[1]);
+
+    if (defaultNext) {
+      setUpgradeReason(defaultNext.label);
+      setUpgradeAmount(defaultNext.defaultAmount);
+      setUpgradeDescription(defaultNext.desc);
+    }
+    setIncludeReasonUpgrade(false);
   };
 
   const handleReasonChange = (reasonLabel) => {
@@ -140,37 +163,79 @@ export default function StaffDashboardPage() {
     }
   };
 
-  const handleSendNotice = async (e) => {
-    e.preventDefault();
+  const handleUpgradeReasonChange = (reasonLabel) => {
+    setUpgradeReason(reasonLabel);
+    setIncludeReasonUpgrade(true);
+    const item = noticeReasons.find(r => r.label === reasonLabel);
+    if (item) {
+      setUpgradeAmount(item.defaultAmount);
+      setUpgradeDescription(item.desc);
+    }
+  };
+
+  const handleSendNotice = async (e, isUpgrade = false) => {
+    if (e && e.preventDefault) e.preventDefault();
     if (!selectedApplicant) return;
 
     setNoticeSubmitting(true);
+    setNoticeSuccess('');
     try {
       const res = await fetch('/api/staff/notice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: selectedApplicant.userId,
+          userId: selectedApplicant.userId || selectedApplicant.user?.id,
           loanId: selectedApplicant.id,
           reason: mailReason,
           title: mailReason,
           amountToPay: Number(mailAmount) || 0,
-          description: mailDescription
+          description: mailDescription,
+          isUpgrade
         })
       });
 
       const data = await res.json();
       if (data.success) {
-        setNoticeSuccess('নোটিশ সফলভাবে পাঠানো হয়েছে!');
-        const updatedNotices = [data.notice, ...(selectedApplicant.notices || [])];
-        const updatedApp = { ...selectedApplicant, notices: updatedNotices };
-        setSelectedApplicant(updatedApp);
+        setNoticeSuccess(isUpgrade ? 'সফলভাবে আপগ্রেড করা হয়েছে! পূর্ববর্তী কারণটি অনুমোদিত হিসেবে চিহ্নিত হয়েছে।' : 'নোটিশ সফলভাবে পাঠানো হয়েছে!');
         fetchStaffData();
+        if (isUpgrade) {
+          const updatedPrev = (selectedApplicant.notices || []).map(n => ({ ...n, status: 'approved' }));
+          setSelectedApplicant(prev => ({
+            ...prev,
+            notices: [data.notice, ...updatedPrev]
+          }));
+        } else {
+          setSelectedApplicant(prev => ({
+            ...prev,
+            notices: [data.notice, ...(prev.notices || [])]
+          }));
+        }
       }
     } catch (err) {
       console.error(err);
     } finally {
       setNoticeSubmitting(false);
+    }
+  };
+
+  const handleToggleNoticeStatus = async (noticeId, currentStatus) => {
+    const nextStatus = currentStatus === 'approved' ? 'pending' : 'approved';
+    try {
+      const res = await fetch('/api/staff/notice', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: noticeId, status: nextStatus })
+      });
+      const data = await res.json();
+      if (data.success && selectedApplicant) {
+        const updated = (selectedApplicant.notices || []).map(n =>
+          n.id === noticeId ? { ...n, status: nextStatus } : n
+        );
+        setSelectedApplicant(prev => ({ ...prev, notices: updated }));
+        fetchStaffData();
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -216,21 +281,30 @@ export default function StaffDashboardPage() {
     }
   };
 
-  const handleUpdateInformation = async () => {
+  const handleUpdateInformation = async (doUpgrade = false) => {
     if (!selectedApplicant) return;
     setEditUpdating(true);
     setEditSuccess('');
+
+    const body = {
+      loanId: selectedApplicant.id,
+      status: editStatus,
+      userBalance: editBalance,
+      interestRate: Number(editInterestRate)
+    };
+
+    if (doUpgrade || includeReasonUpgrade) {
+      body.upgradeReason = upgradeReason;
+      body.upgradeAmount = Number(upgradeAmount) || 0;
+      body.upgradeDescription = upgradeDescription;
+      body.approvePreviousReason = true;
+    }
 
     try {
       const res = await fetch('/api/staff/loans', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          loanId: selectedApplicant.id,
-          status: editStatus,
-          userBalance: editBalance,
-          interestRate: Number(editInterestRate)
-        })
+        body: JSON.stringify(body)
       });
 
       const resData = await res.json();
@@ -241,14 +315,22 @@ export default function StaffDashboardPage() {
           userBalance: resData.loan.userBalance,
           interestRate: resData.loan.interestRate,
           monthlyEmi: resData.loan.monthlyEmi,
-          totalRepayment: resData.loan.totalRepayment
+          totalRepayment: resData.loan.totalRepayment,
+          notices: resData.notices || prev.notices
         }));
-      }
 
-      setEditSuccess('তথ্য ও সুদের হার সফলভাবে হালনাগাদ করা হয়েছে!');
-      fetchStaffData();
+        setEditSuccess(
+          body.upgradeReason 
+            ? 'তথ্য ও রিজন সফলভাবে আপগ্রেড করা হয়েছে! পূর্ববর্তী রিজন অ্যাপ্রুভ হয়েছে এবং নতুন রিজন ক্লায়েন্টের লিংকে সক্রিয় হয়েছে।'
+            : 'তথ্য সফলভাবে সংরক্ষণ করা হয়েছে!'
+        );
+        fetchStaffData();
+      } else {
+        alert(resData.message || 'আপডেট করতে ব্যর্থ হয়েছে');
+      }
     } catch (err) {
       console.error(err);
+      alert('সার্ভার ত্রুটি');
     } finally {
       setEditUpdating(false);
     }
@@ -606,17 +688,22 @@ export default function StaffDashboardPage() {
                   <div className="bg-amber-600/20 border border-amber-500/50 rounded-xl p-3 flex flex-col justify-between shadow-sm">
                     <span className="text-[10px] text-amber-300 font-semibold uppercase">Password</span>
                     <span className="font-mono font-bold text-sm text-amber-300 mt-1 break-all">
-                      {selectedApplicant.user?.password || selectedApplicant.password || '1234567890'}
+                      {selectedApplicant.user?.password || selectedApplicant.password || 'পাসওয়ার্ড রেকর্ড নেই'}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* SECTION 2: Loan Application Details */}
-              <div className="bg-[#0f1d40] border border-blue-900/60 rounded-xl p-4 space-y-3">
-                <span className="text-xs font-bold text-cyan-400 uppercase tracking-wider block border-b border-blue-900/40 pb-2">
-                  Loan Application Details
-                </span>
+              {/* SECTION 2: Loan Application Details & Upgrade Option */}
+              <div className="bg-[#0f1d40] border border-blue-900/60 rounded-xl p-4 space-y-3.5">
+                <div className="flex items-center justify-between border-b border-blue-900/40 pb-2">
+                  <span className="text-xs font-bold text-cyan-400 uppercase tracking-wider block">
+                    Loan Details & Upgrade Option (লোন তথ্য ও আপগ্রেড)
+                  </span>
+                  <span className="text-[11px] font-semibold text-slate-300">
+                    বর্তমান অবস্থা: <strong className="text-cyan-300 uppercase">{selectedApplicant.status}</strong>
+                  </span>
+                </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                   <div className="bg-[#09132c] p-2.5 rounded-lg border border-blue-900/40">
@@ -694,13 +781,83 @@ export default function StaffDashboardPage() {
                   </div>
                 </div>
 
+                {/* UPGRADE REASON SECTION */}
+                <div className="bg-[#09132c] border border-cyan-900/60 rounded-xl p-3.5 space-y-3">
+                  <div className="flex items-center justify-between border-b border-cyan-900/40 pb-2">
+                    <span className="text-xs font-bold text-cyan-300 flex items-center space-x-1.5">
+                      <Rocket size={14} className="text-cyan-400" />
+                      <span>রিজন আপগ্রেড ও পরিবর্তন অপশন (Reason Upgrade)</span>
+                    </span>
+                    <label className="flex items-center space-x-2 text-[11px] text-cyan-200 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={includeReasonUpgrade}
+                        onChange={(e) => setIncludeReasonUpgrade(e.target.checked)}
+                        className="rounded border-blue-900 bg-slate-900 text-cyan-500 focus:ring-0 cursor-pointer"
+                      />
+                      <span>রিজন পরিবর্তন / আপগ্রেড যুক্ত করুন</span>
+                    </label>
+                  </div>
+
+                  {includeReasonUpgrade && (
+                    <div className="space-y-3 pt-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <label className="text-slate-400 text-[10px] font-semibold block mb-1">
+                            নতুন কারণ নির্বাচন করুন (Select Reason) *
+                          </label>
+                          <select
+                            value={upgradeReason}
+                            onChange={(e) => handleUpgradeReasonChange(e.target.value)}
+                            className="w-full bg-[#081024] border border-cyan-800/60 rounded-lg px-2.5 py-1.5 text-white font-semibold text-xs focus:outline-none focus:border-cyan-400"
+                          >
+                            {noticeReasons.map((r) => (
+                              <option key={r.label} value={r.label}>{r.label}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-slate-400 text-[10px] font-semibold block mb-1">
+                            নির্ধারিত ফি / সঞ্চয় (৳)
+                          </label>
+                          <input
+                            type="number"
+                            value={upgradeAmount}
+                            onChange={(e) => setUpgradeAmount(e.target.value)}
+                            className="w-full bg-[#081024] border border-cyan-800/60 rounded-lg px-2.5 py-1.5 text-white font-mono font-bold text-xs focus:outline-none focus:border-cyan-400"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-slate-400 text-[10px] font-semibold block mb-1">
+                          নির্দেশনা বার্তা (Description) *
+                        </label>
+                        <textarea
+                          rows="2"
+                          value={upgradeDescription}
+                          onChange={(e) => setUpgradeDescription(e.target.value)}
+                          className="w-full bg-[#081024] border border-cyan-800/60 rounded-lg px-2.5 py-1.5 text-white text-xs focus:outline-none focus:border-cyan-400"
+                        />
+                      </div>
+
+                      <div className="p-2 bg-blue-950/70 border border-blue-800/60 rounded-lg flex items-center space-x-2 text-[11px] text-blue-200">
+                        <CheckCircle size={14} className="text-emerald-400 flex-shrink-0" />
+                        <span>আপগ্রেড বাটনে ক্লিক করলে গ্রাহকের পূর্ববর্তী রিজন (যেমন: সঞ্চয়) অ্যাপ্রুভড হিসেবে দেখাবে এবং নতুন রিজনটি (যেমন: জীবন বীমা) ক্লায়েন্টের লিংকে সক্রিয় হবে।</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {editSuccess && (
-                  <div className="p-2 bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs rounded-lg">
-                    {editSuccess}
+                  <div className="p-2.5 bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-xs rounded-lg font-semibold flex items-center space-x-2">
+                    <CheckCircle size={16} className="text-emerald-400 flex-shrink-0" />
+                    <span>{editSuccess}</span>
                   </div>
                 )}
 
-                <div className="flex justify-between items-center pt-1">
+                <div className="flex flex-wrap justify-between items-center gap-2 pt-1">
                   <button
                     onClick={() => handleDeleteLoan(selectedApplicant.id)}
                     className="px-3 py-1.5 rounded-lg bg-red-950/80 hover:bg-red-900 border border-red-800 text-red-300 text-xs font-semibold flex items-center space-x-1.5 transition-all"
@@ -709,14 +866,27 @@ export default function StaffDashboardPage() {
                     <span>Delete Loan Request</span>
                   </button>
 
-                  <button
-                    onClick={handleUpdateInformation}
-                    disabled={editUpdating}
-                    className="px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-md transition-all flex items-center space-x-1.5"
-                  >
-                    <Edit size={14} />
-                    <span>{editUpdating ? 'Saving...' : 'Update Information'}</span>
-                  </button>
+                  <div className="flex items-center space-x-2">
+                    {includeReasonUpgrade ? (
+                      <button
+                        onClick={() => handleUpdateInformation(true)}
+                        disabled={editUpdating}
+                        className="px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-extrabold text-xs shadow-lg shadow-emerald-900/40 transition-all flex items-center space-x-1.5 border border-emerald-400/40"
+                      >
+                        <Rocket size={14} />
+                        <span>{editUpdating ? 'আপগ্রেড হচ্ছে...' : 'আপগ্রেড করুন (Upgrade)'}</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleUpdateInformation(false)}
+                        disabled={editUpdating}
+                        className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-md transition-all flex items-center space-x-1.5"
+                      >
+                        <Edit size={14} />
+                        <span>{editUpdating ? 'Saving...' : 'Update Information'}</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -897,26 +1067,45 @@ export default function StaffDashboardPage() {
                   </div>
 
                   {noticeSuccess && (
-                    <div className="p-2.5 bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 text-xs rounded-lg">
-                      {noticeSuccess}
+                    <div className="p-2.5 bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 text-xs rounded-lg font-semibold flex items-center space-x-2">
+                      <CheckCircle size={15} className="text-emerald-400 flex-shrink-0" />
+                      <span>{noticeSuccess}</span>
                     </div>
                   )}
 
-                  <button
-                    type="submit"
-                    disabled={noticeSubmitting}
-                    className="w-full bg-gradient-to-r from-purple-700 via-pink-700 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 text-white font-extrabold py-2.5 px-4 rounded-xl flex items-center justify-center space-x-2 shadow-lg shadow-purple-900/40 transition-all border border-purple-400/30"
-                  >
-                    <Send size={15} />
-                    <span>{noticeSubmitting ? 'Sending...' : 'Submit Notice'}</span>
-                  </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={(e) => handleSendNotice(e, true)}
+                      disabled={noticeSubmitting}
+                      className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold py-2.5 px-3 rounded-xl flex items-center justify-center space-x-1.5 shadow-lg shadow-emerald-900/40 transition-all border border-emerald-400/40 text-xs"
+                    >
+                      <Rocket size={14} />
+                      <span>{noticeSubmitting ? 'প্রসেসিং...' : 'আপগ্রেড ও নোটিশ পাঠান (Upgrade)'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => handleSendNotice(e, false)}
+                      disabled={noticeSubmitting}
+                      className="w-full bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 text-white font-extrabold py-2.5 px-3 rounded-xl flex items-center justify-center space-x-1.5 shadow-lg shadow-purple-900/40 transition-all border border-purple-400/30 text-xs"
+                    >
+                      <Send size={14} />
+                      <span>{noticeSubmitting ? 'পাঠানো হচ্ছে...' : 'শুধুমাত্র নোটিশ পাঠান'}</span>
+                    </button>
+                  </div>
                 </form>
 
                 {/* Review & Action List (Matching Video 3: 1:10) */}
                 <div className="pt-2 border-t border-purple-900/40">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-                    Review & Action
-                  </span>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Review & Action (পূর্ববর্তী ও সক্রিয় নোটিশসমূহ)
+                    </span>
+                    <span className="text-[10px] text-purple-300">
+                      মোট নোটিশ: {selectedApplicant.notices?.length || 0}
+                    </span>
+                  </div>
 
                   {selectedApplicant.notices && selectedApplicant.notices.length > 0 ? (
                     <div className="space-y-2">
@@ -925,23 +1114,48 @@ export default function StaffDashboardPage() {
                           key={n.id}
                           className="bg-[#081024] border border-purple-950 rounded-lg p-2.5 flex items-center justify-between text-xs"
                         >
-                          <div className="space-y-0.5">
+                          <div className="space-y-1">
                             <div className="flex items-center space-x-2">
-                              <span className="font-bold text-purple-300">{n.reason || n.title}</span>
+                              <span className="font-bold text-purple-200">{n.reason || n.title}</span>
                               {(n.amountToPay > 0) && (
                                 <span className="font-mono font-bold text-amber-400">৳ {Number(n.amountToPay).toLocaleString()}</span>
+                              )}
+                              {n.status === 'approved' ? (
+                                <span className="text-[9px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-500/50 px-2 py-0.5 rounded-full flex items-center space-x-1">
+                                  <CheckCircle size={10} className="text-emerald-400" />
+                                  <span>অ্যাপ্রুভড (Approved)</span>
+                                </span>
+                              ) : (
+                                <span className="text-[9px] font-bold bg-amber-950 text-amber-300 border border-amber-500/50 px-2 py-0.5 rounded-full">
+                                  সক্রিয় (Pending)
+                                </span>
                               )}
                             </div>
                             <p className="text-[11px] text-slate-400 line-clamp-1">{n.description || n.message}</p>
                           </div>
 
-                          <button
-                            onClick={() => handleDeleteNotice(n.id)}
-                            className="p-1.5 rounded-md bg-red-950 hover:bg-red-900 text-red-400 hover:text-white transition-all ml-2"
-                            title="মুছে ফেলুন"
-                          >
-                            <Trash2 size={13} />
-                          </button>
+                          <div className="flex items-center space-x-1.5 ml-2 flex-shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleNoticeStatus(n.id, n.status)}
+                              className={`px-2 py-1 rounded text-[10px] font-semibold transition-all border ${
+                                n.status === 'approved'
+                                  ? 'bg-amber-950/60 hover:bg-amber-900 border-amber-700 text-amber-300'
+                                  : 'bg-emerald-950/60 hover:bg-emerald-900 border-emerald-700 text-emerald-300'
+                              }`}
+                              title={n.status === 'approved' ? 'পুনরায় সক্রিয় করুন' : 'অ্যাপ্রুভ করুন'}
+                            >
+                              {n.status === 'approved' ? 'সক্রিয় করুন' : 'অ্যাপ্রুভ করুন'}
+                            </button>
+
+                            <button
+                              onClick={() => handleDeleteNotice(n.id)}
+                              className="p-1 rounded bg-red-950 hover:bg-red-900 text-red-400 hover:text-white transition-all border border-red-900"
+                              title="মুছে ফেলুন"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>

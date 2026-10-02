@@ -5,13 +5,17 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const queryUserId = searchParams.get('userId');
+
     const { supabase, user } = await getAuthContext();
-    if (!user) return unauthorizedResponse();
+    const effectiveUserId = user?.id || queryUserId;
+    if (!effectiveUserId) return unauthorizedResponse();
 
     const { data, error } = await supabase
       .from('notices')
       .select('id, user_id, loan_id, title, message, status, created_at')
-      .eq('user_id', user.id)
+      .eq('user_id', effectiveUserId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -45,7 +49,14 @@ export async function GET(request) {
       };
     });
 
-    return NextResponse.json({ success: true, notices });
+    return NextResponse.json(
+      { success: true, notices },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        },
+      }
+    );
   } catch (error) {
     console.error('Load notices error:', error);
     return NextResponse.json({ success: false, message: 'সার্ভার ত্রুটি' }, { status: 500 });

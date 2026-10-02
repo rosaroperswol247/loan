@@ -105,7 +105,9 @@ export default function DocumentGenerator({ applicantData, onClose }) {
     fineAmount: 110,
     policeStation: 'DMP Police Station',
     challanNumber: 'গ-২১৪৫৬৯',
-    branch: 'সেগুনবাগিচা, ঢাকা ১০০০'
+    branch: 'সেগুনবাগিচা, ঢাকা ১০০০',
+    reportNo: '32918',
+    dob: applicantData?.personal?.dob || '02 May 1984'
   });
 
   const [generated, setGenerated] = useState(true);
@@ -487,7 +489,7 @@ export default function DocumentGenerator({ applicantData, onClose }) {
               </div>
 
               {/* Printable Document Container */}
-              <div id="printable-doc" className={`bg-white text-slate-900 rounded-xl shadow-2xl border border-slate-200 min-h-[500px] text-xs leading-relaxed font-sans relative overflow-hidden doc-container ${selectedDoc === 'agreement' || selectedDoc === 'insurance' ? 'p-1 sm:p-2' : 'p-4 sm:p-6'}`}>
+              <div id="printable-doc" className={`bg-white text-slate-900 rounded-xl shadow-2xl border border-slate-200 min-h-[500px] text-xs leading-relaxed font-sans relative overflow-hidden doc-container ${selectedDoc === 'agreement' || selectedDoc === 'insurance' || selectedDoc === 'police' ? 'p-1 sm:p-2' : 'p-4 sm:p-6'}`}>
                 
                 {/* 1. APPROVAL LETTER (MyBank Official Template) */}
                 {selectedDoc === 'approval' && (
@@ -1320,55 +1322,63 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                   </div>
                 )}
 
-                {/* 9. POLICE CLEARANCE CERTIFICATE */}
+                {/* 9. POLICE CLEARANCE CERTIFICATE (Authentic Template Canvas with Dynamic Overlays) */}
                 {selectedDoc === 'police' && (
-                  <div className="space-y-4 font-sans text-slate-900 bg-white p-4 sm:p-6 border border-indigo-300 rounded-lg">
-                    <div className="flex items-center justify-between border-b-2 border-indigo-900 pb-2">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-10 h-10 rounded-full bg-indigo-950 text-white flex items-center justify-center font-bold text-xs">
-                          POLICE
-                        </div>
-                        <div>
-                          <h3 className="font-black text-xs uppercase text-indigo-950">GOVERNMENT OF THE PEOPLE'S REPUBLIC OF BANGLADESH</h3>
-                          <p className="text-[9px] text-slate-600">Dhaka Metropolitan Police • Special Verification Branch</p>
-                        </div>
-                      </div>
-                      <span className="text-[9px] font-mono text-slate-500">Report No: 32018</span>
+                  <div
+                    className="relative w-full max-w-[680px] mx-auto shadow-md rounded overflow-hidden select-none border border-slate-300 bg-[#fbf8ee]"
+                    style={{ aspectRatio: '1468 / 2912' }}
+                  >
+                    {/* The Authentic Bangladesh Police Clearance Certificate Template Background */}
+                    <img
+                      src="/documents/police_clearance_bg.jpg"
+                      alt="Police Clearance Certificate Background"
+                      className="absolute inset-0 w-full h-full object-fill pointer-events-none select-none"
+                    />
+
+                    {/* Report No & Date (Positioned below printed header and above printed title) */}
+                    <div className="absolute top-[32.0%] left-[10.5%] right-[10.5%] z-10 flex items-center justify-between text-[11px] sm:text-[13px] md:text-[14.5px] font-mono font-bold text-slate-900 tracking-wide select-none">
+                      <span>REPORT NO: {docFields.reportNo || '32918'}</span>
+                      <span>DATE: {docFields.date || '2026-10-02'}</span>
                     </div>
 
-                    <div className="text-center py-1">
-                      <h4 className="font-black text-sm uppercase underline text-slate-900">
-                        POLICE CLEARANCE CERTIFICATE
-                      </h4>
-                    </div>
-
-                    <div className="text-xs text-justify space-y-2 text-slate-800">
+                    {/* Body Text (Positioned between printed title 'POLICE CLEARENCE CERTIFICATE.' and signatures) */}
+                    <div className="absolute top-[44.8%] left-[10.5%] right-[10.5%] z-10 space-y-4 sm:space-y-6 text-[10.5px] sm:text-[12.5px] md:text-[14.5px] text-slate-950 font-sans leading-relaxed text-justify select-none">
                       <p>
-                        This is to certify that <strong>{docFields.name}</strong>, Son/Daughter of: <strong>{docFields.fatherName}</strong> and <strong>{docFields.motherName}</strong>, holding NID: <strong>{docFields.nid}</strong>, resident of: {docFields.address}, has no adverse criminal records or unlawful activities reported at {docFields.policeStation}.
+                        Hereby after verification it is found that <strong>{docFields.name}</strong> [DOB:<strong>{docFields.dob || '02 May 1984'}</strong>] Father name is <strong>{docFields.fatherName}</strong> He is not involved in any illegal activities. No report has been received against him or any crime has been detected in the last three months. He is not involved in any criminal activities. And let&apos;s hope he doesn&apos;t get involved in any criminal activities in the future.
                       </p>
                       <p>
-                        As per our official verification database, the individual bears acceptable conduct and is cleared for availing micro-credit loan privileges from MyBank Bangladesh Mission.
+                        As per our verification report he is able to repay the loan. So you can give him Rin from the MyBank.
                       </p>
                     </div>
 
-                    <div className="pt-8 flex justify-between items-end">
-                      <div className="text-center">
-                        <div className="w-20 h-10 border-b border-slate-400 mb-1 flex items-center justify-center">
-                          {docFields.signatureUrl ? (
-                            <img src={docFields.signatureUrl} alt="Applicant Signature" className="max-h-8 max-w-[85px] object-contain" />
-                          ) : (
-                            <span className="font-serif italic text-xs text-slate-800">{docFields.name}</span>
-                          )}
-                        </div>
-                        <span className="text-[9px] text-slate-500">Subject Signature</span>
-                      </div>
-                      <div className="w-16 h-16 rounded-full border border-indigo-700 text-indigo-800 flex items-center justify-center text-[8px] font-bold text-center">
-                        DMP SEAL
-                      </div>
-                      <div className="text-center">
-                        <div className="w-24 border-b border-slate-400 mb-1 font-serif italic text-xs">Superintendent</div>
-                        <span className="text-[9px] text-slate-600 font-bold">Special Branch</span>
-                      </div>
+                    {/* Signatures Area (Positioned above the printed horizontal lines) */}
+                    {/* Left: Applicant Signature over printed 'SIGNATURE' line */}
+                    <div className="absolute top-[72.5%] bottom-[18.5%] left-[10%] w-[26%] z-10 flex items-end justify-center select-none pb-0.5">
+                      {docFields.signatureUrl ? (
+                        <img
+                          src={docFields.signatureUrl}
+                          alt="Subject Signature"
+                          className="max-h-12 sm:max-h-16 md:max-h-20 max-w-full object-contain"
+                        />
+                      ) : (
+                        <span className="font-serif italic font-bold text-xs sm:text-sm text-slate-800">
+                          {docFields.name}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Right: Officer In Charge Signature over printed 'OFFICER IN CHARGE' line */}
+                    <div className="absolute top-[71.5%] bottom-[18.5%] right-[10%] w-[26%] z-10 flex items-end justify-center select-none pb-0.5 pointer-events-none">
+                      <img
+                        src="/documents/police_officer_signature.png"
+                        alt="Officer in Charge Signature"
+                        className="max-h-16 sm:max-h-20 md:max-h-24 max-w-full object-contain"
+                      />
+                    </div>
+
+                    {/* Bottom Box text (Cleanly covers '[OFFICE ADDRESS].' inside the bottom border) */}
+                    <div className="absolute top-[89.8%] bottom-[4.2%] left-[11.2%] right-[11.2%] z-10 flex items-center justify-center text-center bg-[#fbf8e5] text-slate-900 font-sans font-medium text-[9.5px] sm:text-[11.5px] md:text-[13px] leading-snug px-3 select-none">
+                      <span>This certificate is issued from the office of the Superintendent of Police.</span>
                     </div>
                   </div>
                 )}

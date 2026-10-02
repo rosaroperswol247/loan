@@ -611,11 +611,11 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                         </div>
 
                         {/* Government & Banking Regulatory Seals */}
-                        <div className="pb-1">
+                        <div className="pb-0.5 flex items-end">
                           <img
                             src="/documents/approval_footer_logos.png"
                             alt="Regulatory Authorization"
-                            className="h-10 object-contain select-none"
+                            className="h-11 sm:h-12 w-auto object-contain select-none"
                           />
                         </div>
                       </div>
@@ -755,17 +755,17 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                   </div>
                 )}
 
-                {/* 3. BANK CHECK (Exact match to 6.jpeg) */}
+                {/* 3. BANK CHECK (Clean Pristine MyBank Cheque) */}
                 {selectedDoc === 'check' && (
-                  <div className="relative bg-[#ebf3fa] border-2 border-slate-300 rounded-lg overflow-hidden shadow-md p-5 text-slate-900 font-sans">
-                    {/* Faint World Map Watermark in background matching 6.jpeg */}
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-                      <img
-                        src="/documents/cheque_map.png"
-                        alt=""
-                        className="w-[85%] max-h-[85%] object-contain select-none opacity-25"
-                      />
-                    </div>
+                  <div className="relative bg-gradient-to-br from-[#f0f6fc] via-[#ebf3fa] to-[#e4eef7] border-2 border-slate-300 rounded-lg overflow-hidden shadow-md p-5 text-slate-900 font-sans">
+                    {/* Clean Subtle Bank Security Pattern (Zero dirty ghost text!) */}
+                    <div
+                      className="absolute inset-0 opacity-[0.035] pointer-events-none z-0"
+                      style={{
+                        backgroundImage: 'radial-gradient(#1e3a8a 1.2px, transparent 1.2px)',
+                        backgroundSize: '16px 16px'
+                      }}
+                    />
 
                     <div className="relative z-10 space-y-3.5">
                       {/* Top Row: Bank Logo & Date Boxes matching 6.jpeg */}
@@ -1027,11 +1027,11 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                                 </div>
                               )}
                             </div>
-                            {/* Circular Purple/Blue JBC Rubber Stamp */}
+                            {/* Authentic Circular JBC Official Rubber Stamp */}
                             <img
-                              src="/documents/jbc_seal_transparent.png"
-                              alt="JBC Seal"
-                              className="absolute -bottom-3 sm:-bottom-4 -left-4 sm:-left-6 w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 object-contain pointer-events-none transform -rotate-12 select-none drop-shadow"
+                              src="/documents/jbc_seal_official.png"
+                              alt="JBC Official Seal"
+                              className="absolute -bottom-4 sm:-bottom-5 -left-5 sm:-left-7 w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 object-contain pointer-events-none transform -rotate-6 select-none drop-shadow-md"
                             />
                           </div>
                         </div>

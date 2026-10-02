@@ -387,10 +387,9 @@ export default function CustomerDashboardPage() {
               </div>
             )}
 
-            {/* Active Urgent Notice Card (Pending reason like জীবন বীমা / সরকারি ভ্যাট / সঞ্চয়) */}
+            {/* Current Valid Notice Card (Active upgraded reason like জীবন বীমা / সরকারি ভ্যাট / সঞ্চয়) */}
             {(() => {
-              const pendingNotices = (notices || []).filter(n => n.status !== 'approved');
-              const activeNotice = pendingNotices.length > 0 ? pendingNotices[0] : null;
+              const activeNotice = (notices && notices.length > 0) ? (notices.find(n => n.status !== 'approved') || notices[0]) : null;
               if (!activeNotice) return null;
 
               return (

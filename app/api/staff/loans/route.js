@@ -253,17 +253,16 @@ export async function PATCH(request) {
 
     // Handle reason upgrade if provided
     if (upgradeReason && upgradeReason.trim()) {
-      if (approvePreviousReason) {
-        await supabase
-          .from('notices')
-          .update({ status: 'approved' })
-          .eq('user_id', data.user_id)
-          .neq('status', 'approved');
-      }
+      // Automatically delete previous notices for this user so only the current notice exists
+      await supabase
+        .from('notices')
+        .delete()
+        .eq('user_id', data.user_id);
 
       const payload = JSON.stringify({
         amountToPay: Number(upgradeAmount) || 0,
-        description: upgradeDescription || ''
+        description: upgradeDescription || '',
+        status: 'pending'
       });
 
       await supabase

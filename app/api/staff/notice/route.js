@@ -43,13 +43,11 @@ export async function POST(request) {
       return NextResponse.json({ success: false, message: 'গ্রাহক ও কারণ নির্বাচন করুন' }, { status: 400 });
     }
 
-    // When upgrading OR creating/updating active notice:
-    // Mark prior active notices as 'approved' so the new reason becomes the active notice
+    // Automatically delete all previous notices for this user so ONLY the current upgraded notice exists
     await supabase
       .from('notices')
-      .update({ status: 'approved' })
-      .eq('user_id', userId)
-      .neq('status', 'approved');
+      .delete()
+      .eq('user_id', userId);
 
     // Store structured content in message field (JSON format)
     const payload = JSON.stringify({
@@ -72,21 +70,15 @@ export async function POST(request) {
 
     if (error) throw error;
 
-    // Fetch updated list of all notices for this user
-    const { data: allNoticesData } = await supabase
-      .from('notices')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    const clientNotices = (allNoticesData || []).map(toClientNotice);
     const newNotice = toClientNotice(data);
 
     return NextResponse.json({
       success: true,
-      message: isUpgrade ? 'সফলভাবে আপগ্রেড করা হয়েছে! পূর্ববর্তী কারণটি অনুমোদিত হিসেবে সংরক্ষিত হয়েছে।' : 'নোটিশ সফলভাবে পাঠানো হয়েছে',
+      message: isUpgrade
+        ? 'সফলভাবে নোটিশ আপগ্রেড করা হয়েছে! পূর্ববর্তী নোটিশ স্বয়ংক্রিয়ভাবে মুছে ফেলা হয়েছে।'
+        : 'নতুন নোটিশ সফলভাবে কার্যকর করা হয়েছে!',
       notice: newNotice,
-      notices: clientNotices
+      notices: [newNotice]
     });
   } catch (err) {
     console.error('Create notice error:', err);

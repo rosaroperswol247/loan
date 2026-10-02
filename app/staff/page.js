@@ -216,8 +216,8 @@ export default function StaffDashboardPage() {
       if (data.success) {
         setNoticeSuccess(
           isUpgrade
-            ? 'সফলভাবে আপগ্রেড করা হয়েছে! পূর্ববর্তী কারণটি অনুমোদিত হিসেবে চিহ্নিত হয়েছে।'
-            : 'নোটিশ সফলভাবে পাঠানো হয়েছে!'
+            ? 'সফলভাবে নোটিশ আপগ্রেড করা হয়েছে! পূর্ববর্তী নোটিশ স্বয়ংক্রিয়ভাবে মুছে ফেলা হয়েছে এবং নতুন নোটিশটি কার্যকর হয়েছে।'
+            : 'নতুন নোটিশ সফলভাবে কার্যকর হয়েছে!'
         );
         if (data.notices) {
           setSelectedApplicant(prev => ({
@@ -225,10 +225,9 @@ export default function StaffDashboardPage() {
             notices: data.notices
           }));
         } else if (data.notice) {
-          const updatedPrev = (selectedApplicant.notices || []).map(n => ({ ...n, status: 'approved' }));
           setSelectedApplicant(prev => ({
             ...prev,
-            notices: [data.notice, ...updatedPrev]
+            notices: [data.notice]
           }));
         }
         await fetchStaffData();
@@ -1133,7 +1132,7 @@ export default function StaffDashboardPage() {
                 <div className="pt-2 border-t border-purple-900/40">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                      Review & Action (পূর্ববর্তী ও সক্রিয় নোটিশসমূহ)
+                      Review & Action (বর্তমান সক্রিয় নোটিশ)
                     </span>
                     <span className="text-[10px] text-purple-300">
                       মোট নোটিশ: {selectedApplicant.notices?.length || 0}

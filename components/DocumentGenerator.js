@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   FileCheck,
   Receipt,
@@ -145,50 +145,6 @@ export default function DocumentGenerator({ applicantData, onClose }) {
       monthlyEmi: emi
     }));
   };
-
-  const removeSignatureBackground = (dataUrl) => {
-    return new Promise((resolve) => {
-      if (!dataUrl || typeof dataUrl !== 'string') return resolve(dataUrl);
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        try {
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0);
-          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const d = imgData.data;
-          for (let i = 0; i < d.length; i += 4) {
-            const r = d[i], g = d[i+1], b = d[i+2];
-            const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-            if (lum >= 215) {
-              d[i+3] = 0;
-            } else if (lum <= 100) {
-              d[i+3] = 255;
-            } else {
-              d[i+3] = Math.round(255 * (215 - lum) / (215 - 100));
-            }
-          }
-          ctx.putImageData(imgData, 0, 0);
-          resolve(canvas.toDataURL('image/png'));
-        } catch {
-          resolve(dataUrl);
-        }
-      };
-      img.onerror = () => resolve(dataUrl);
-      img.src = dataUrl;
-    });
-  };
-
-  useEffect(() => {
-    if (userSignature) {
-      removeSignatureBackground(userSignature).then(clean => {
-        setDocFields(prev => ({ ...prev, signatureUrl: clean }));
-      }).catch(() => {});
-    }
-  }, [userSignature]);
 
   const handleSignatureUpload = (e) => {
     const file = e.target.files?.[0];

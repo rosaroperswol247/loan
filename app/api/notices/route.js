@@ -23,6 +23,9 @@ export async function GET(request) {
     const notices = (data || []).map(notice => {
       let amountToPay = 0;
       let description = notice.message || '';
+      let slipImage = '';
+      let slipSubmittedAt = null;
+      let hasSlip = false;
       let noticeStatus = notice.status === 'read' ? 'approved' : (notice.status === 'unread' ? 'pending' : (notice.status || 'pending'));
 
       try {
@@ -30,6 +33,9 @@ export async function GET(request) {
         if (parsed && typeof parsed === 'object') {
           if (parsed.amountToPay !== undefined) amountToPay = Number(parsed.amountToPay);
           if (parsed.description !== undefined) description = parsed.description;
+          if (parsed.slipImage) slipImage = parsed.slipImage;
+          if (parsed.slipSubmittedAt) slipSubmittedAt = parsed.slipSubmittedAt;
+          if (parsed.hasSlip) hasSlip = true;
           if (parsed.status !== undefined && notice.status === 'pending') {
             noticeStatus = parsed.status;
           }
@@ -48,6 +54,9 @@ export async function GET(request) {
         amountToPay,
         description,
         message: description,
+        slipImage,
+        slipSubmittedAt,
+        hasSlip: !!slipImage || hasSlip,
         status: noticeStatus,
         createdAt: notice.created_at,
       };

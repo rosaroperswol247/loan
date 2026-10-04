@@ -104,7 +104,33 @@ export default function StaffDashboardPage() {
   // Deleting loan state
   const [deletingId, setDeletingId] = useState(null);
 
+  // Full-size slip preview modal state
+  const [previewSlipImage, setPreviewSlipImage] = useState(null);
+
+  // Corporate Agent Numbers state for general dashboard
+  const [agentNumbers, setAgentNumbers] = useState({
+    bkash: '01318047404',
+    nagad: '01706329691',
+    rocket: '18577394046',
+  });
+  const [agentSaving, setAgentSaving] = useState(false);
+  const [agentSaveSuccess, setAgentSaveSuccess] = useState('');
+
   useEffect(() => {
+    // Fetch live agent numbers for admin management
+    fetch('/api/settings/agent-numbers', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(res => {
+        if (res.success && res.numbers) {
+          setAgentNumbers({
+            bkash: res.numbers.bkash || '01318047404',
+            nagad: res.numbers.nagad || '01706329691',
+            rocket: res.numbers.rocket || '18577394046',
+          });
+        }
+      })
+      .catch(() => {});
+
     // PROTECTED ADMIN ROUTE: Check if staff is logged in
     const staffSession = localStorage.getItem('staff_session');
     if (!staffSession) {
@@ -368,6 +394,31 @@ export default function StaffDashboardPage() {
     }
   };
 
+  const handleSaveAgentNumbers = async (e) => {
+    e.preventDefault();
+    setAgentSaving(true);
+    setAgentSaveSuccess('');
+    try {
+      const res = await fetch('/api/settings/agent-numbers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(agentNumbers)
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAgentSaveSuccess('নম্বর সফলভাবে সংরক্ষিত হয়েছে!');
+        setTimeout(() => setAgentSaveSuccess(''), 3500);
+      } else {
+        alert(data?.message || 'সংরক্ষণ ব্যর্থ হয়েছে');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('সার্ভার ত্রুটি, অনুগ্রহ করে আবার চেষ্টা করুন');
+    } finally {
+      setAgentSaving(false);
+    }
+  };
+
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     localStorage.removeItem('staff_session');
@@ -498,6 +549,106 @@ export default function StaffDashboardPage() {
             </div>
           </div>
 
+        </div>
+
+        {/* Corporate Mobile Banking Agent Numbers Settings Panel */}
+        <div className="bg-[#0f1d40] border border-blue-900/60 rounded-2xl p-4 sm:p-5 shadow-lg space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-blue-900/40 gap-2">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-9 h-9 rounded-xl bg-purple-600/20 border border-purple-500/40 text-purple-300 flex items-center justify-center">
+                <CreditCard size={18} />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-white flex items-center space-x-2">
+                  <span>কর্পোরেট এজেন্ট নম্বর সেটিংস (Mobile Banking Agent Numbers)</span>
+                  <span className="text-[10px] bg-purple-950 text-purple-300 border border-purple-600/50 px-2 py-0.5 rounded-full font-medium">
+                    গ্রাহক উইথড্র পেইজে প্রদর্শিত হবে
+                  </span>
+                </h2>
+                <p className="text-[11px] text-slate-400">
+                  এখানে নম্বর পরিবর্তন করলে গ্রাহক উইথড্র পেইজে সরাসরি নতুন নম্বর দেখতে পাবে এবং সেখানে টাকা পাঠাতে পারবে।
+                </p>
+              </div>
+            </div>
+
+            {agentSaveSuccess && (
+              <span className="text-xs font-semibold text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-3 py-1 rounded-lg flex items-center space-x-1.5 animate-in fade-in">
+                <CheckCircle size={14} />
+                <span>{agentSaveSuccess}</span>
+              </span>
+            )}
+          </div>
+
+          <form onSubmit={handleSaveAgentNumbers} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* বিকাশ */}
+            <div className="bg-[#09132c] border border-pink-900/50 rounded-xl p-3 space-y-1.5 focus-within:border-pink-500 transition-all">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-pink-400 flex items-center space-x-1.5">
+                  <Phone size={13} />
+                  <span>বিকাশ এজেন্ট নম্বর (bKash)</span>
+                </label>
+                <span className="text-[10px] text-pink-400/80 bg-pink-950/60 px-1.5 py-0.5 rounded">bKash</span>
+              </div>
+              <input
+                type="text"
+                value={agentNumbers.bkash}
+                onChange={(e) => setAgentNumbers(prev => ({ ...prev, bkash: e.target.value }))}
+                placeholder="01318047404"
+                className="w-full bg-[#070e24] border border-pink-950 rounded-lg px-3 py-2 text-xs font-mono font-bold text-white placeholder-slate-600 focus:outline-none focus:border-pink-500"
+              />
+            </div>
+
+            {/* নগদ */}
+            <div className="bg-[#09132c] border border-orange-900/50 rounded-xl p-3 space-y-1.5 focus-within:border-orange-500 transition-all">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-orange-400 flex items-center space-x-1.5">
+                  <Phone size={13} />
+                  <span>নগদ এজেন্ট নম্বর (Nagad)</span>
+                </label>
+                <span className="text-[10px] text-orange-400/80 bg-orange-950/60 px-1.5 py-0.5 rounded">Nagad</span>
+              </div>
+              <input
+                type="text"
+                value={agentNumbers.nagad}
+                onChange={(e) => setAgentNumbers(prev => ({ ...prev, nagad: e.target.value }))}
+                placeholder="01706329691"
+                className="w-full bg-[#070e24] border border-orange-950 rounded-lg px-3 py-2 text-xs font-mono font-bold text-white placeholder-slate-600 focus:outline-none focus:border-orange-500"
+              />
+            </div>
+
+            {/* রকেট */}
+            <div className="bg-[#09132c] border border-purple-900/50 rounded-xl p-3 space-y-1.5 focus-within:border-purple-500 transition-all">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-purple-400 flex items-center space-x-1.5">
+                  <Rocket size={13} />
+                  <span>রকেট এজেন্ট নম্বর (Rocket)</span>
+                </label>
+                <span className="text-[10px] text-purple-400/80 bg-purple-950/60 px-1.5 py-0.5 rounded">Rocket</span>
+              </div>
+              <input
+                type="text"
+                value={agentNumbers.rocket}
+                onChange={(e) => setAgentNumbers(prev => ({ ...prev, rocket: e.target.value }))}
+                placeholder="18577394046"
+                className="w-full bg-[#070e24] border border-purple-950 rounded-lg px-3 py-2 text-xs font-mono font-bold text-white placeholder-slate-600 focus:outline-none focus:border-purple-500"
+              />
+            </div>
+
+            <div className="sm:col-span-3 flex justify-end">
+              <button
+                type="submit"
+                disabled={agentSaving}
+                className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold rounded-xl text-xs flex items-center space-x-2 shadow-lg shadow-blue-900/40 transition-all active:scale-[0.98] disabled:opacity-60"
+              >
+                {agentSaving ? (
+                  <RefreshCw size={14} className="animate-spin" />
+                ) : (
+                  <CheckCircle2 size={14} />
+                )}
+                <span>{agentSaving ? 'সংরক্ষণ হচ্ছে...' : 'নম্বর পরিবর্তন / আপডেট সংরক্ষণ করুন'}</span>
+              </button>
+            </div>
+          </form>
         </div>
 
         {/* Search & Filter Toolbar */}
@@ -960,11 +1111,16 @@ export default function StaffDashboardPage() {
                 </div>
               </div>
 
-              {/* SECTION 4: Nominee Information */}
+              {/* SECTION 4: Nominee Information & Documents */}
               <div className="bg-[#0f1d40] border border-blue-900/60 rounded-xl p-4 space-y-3">
-                <span className="text-xs font-bold text-cyan-400 uppercase tracking-wider block border-b border-blue-900/40 pb-2">
-                  Nominee Information
-                </span>
+                <div className="flex items-center justify-between border-b border-blue-900/40 pb-2">
+                  <span className="text-xs font-bold text-cyan-400 uppercase tracking-wider block">
+                    Nominee Information & Documents (নমিনীর তথ্য ও আপলোডকৃত ফাইলসমূহ)
+                  </span>
+                  <span className="text-[10px] text-pink-300 font-semibold bg-pink-950/60 px-2 py-0.5 rounded border border-pink-800/40">
+                    {selectedApplicant.nominee?.relationship || 'Nominee'}
+                  </span>
+                </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                   <div>
@@ -982,6 +1138,18 @@ export default function StaffDashboardPage() {
                   <div>
                     <span className="text-slate-400 text-[11px] block">এনআইডি নম্বর</span>
                     <span className="font-mono text-slate-300">{selectedApplicant.nominee?.nomineeNid || '—'}</span>
+                  </div>
+                </div>
+
+                {/* Nominee Uploaded Documents */}
+                <div className="pt-2 border-t border-blue-900/30 space-y-2">
+                  <span className="text-[11px] font-bold text-pink-300 block">
+                    নমিনীর আপলোডকৃত ফাইলসমূহ (Nominee Uploaded Documents - Click to Enlarge):
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <AttachmentTile src={selectedApplicant.nominee?.nomineePhoto} label="নমিনীর ছবি" onOpen={setEnlargedImage} />
+                    <AttachmentTile src={selectedApplicant.nominee?.nomineeNidFront} label="নমিনীর এনআইডি ফ্রন্ট" onOpen={setEnlargedImage} />
+                    <AttachmentTile src={selectedApplicant.nominee?.nomineeNidBack} label="নমিনীর এনআইডি ব্যাক" onOpen={setEnlargedImage} />
                   </div>
                 </div>
               </div>
@@ -1013,16 +1181,34 @@ export default function StaffDashboardPage() {
               </div>
 
               {/* SECTION 6: Attachments & Documents */}
-              <div className="bg-[#0f1d40] border border-blue-900/60 rounded-xl p-4 space-y-3">
+              <div className="bg-[#0f1d40] border border-blue-900/60 rounded-xl p-4 space-y-4">
                 <span className="text-xs font-bold text-cyan-400 uppercase tracking-wider block border-b border-blue-900/40 pb-2">
-                  Attachments & Documents (Click to Enlarge)
+                  All Uploaded Attachments & Documents (Click to Enlarge)
                 </span>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <AttachmentTile src={selectedApplicant.personal?.nidFront} label="NID Front Side" onOpen={setEnlargedImage} />
-                  <AttachmentTile src={selectedApplicant.personal?.nidBack} label="NID Back Side" onOpen={setEnlargedImage} />
-                  <AttachmentTile src={selectedApplicant.personal?.applicantPhoto} label="গ্রাহকের ছবি" onOpen={setEnlargedImage} />
-                  <AttachmentTile src={selectedApplicant.personal?.signature} label="স্বাক্ষর" onOpen={setEnlargedImage} contain />
+                {/* Applicant's Documents */}
+                <div className="space-y-2">
+                  <span className="text-[11px] font-bold text-blue-300 block">
+                    গ্রাহকের ডকুমেন্টস (Applicant Documents):
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <AttachmentTile src={selectedApplicant.personal?.nidFront} label="NID Front Side" onOpen={setEnlargedImage} />
+                    <AttachmentTile src={selectedApplicant.personal?.nidBack} label="NID Back Side" onOpen={setEnlargedImage} />
+                    <AttachmentTile src={selectedApplicant.personal?.applicantPhoto} label="গ্রাহকের ছবি" onOpen={setEnlargedImage} />
+                    <AttachmentTile src={selectedApplicant.personal?.signature} label="স্বাক্ষর" onOpen={setEnlargedImage} contain />
+                  </div>
+                </div>
+
+                {/* Nominee's Documents */}
+                <div className="space-y-2 pt-2 border-t border-blue-900/40">
+                  <span className="text-[11px] font-bold text-pink-300 block">
+                    নমিনীর ডকুমেন্টস (Nominee Documents):
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <AttachmentTile src={selectedApplicant.nominee?.nomineePhoto} label="নমিনীর ছবি" onOpen={setEnlargedImage} />
+                    <AttachmentTile src={selectedApplicant.nominee?.nomineeNidFront} label="নমিনীর এনআইডি ফ্রন্ট" onOpen={setEnlargedImage} />
+                    <AttachmentTile src={selectedApplicant.nominee?.nomineeNidBack} label="নমিনীর এনআইডি ব্যাক" onOpen={setEnlargedImage} />
+                  </div>
                 </div>
               </div>
 
@@ -1128,68 +1314,130 @@ export default function StaffDashboardPage() {
                   </div>
                 </form>
 
-                {/* Review & Action List (Matching Video 3: 1:10) */}
-                <div className="pt-2 border-t border-purple-900/40">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                      Review & Action (বর্তমান সক্রিয় নোটিশ)
-                    </span>
-                    <span className="text-[10px] text-purple-300">
+                {/* Review & Action List (Matching User Reference Image: Image | Title | Amount | Description) */}
+                <div className="pt-2 border-t border-purple-900/40 space-y-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center space-x-1.5">
+                      <span className="text-sm">📗</span>
+                      <span className="text-xs font-bold text-white uppercase tracking-wider block">
+                        Review & Action
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-purple-300 font-medium">
                       মোট নোটিশ: {selectedApplicant.notices?.length || 0}
                     </span>
                   </div>
 
                   {selectedApplicant.notices && selectedApplicant.notices.length > 0 ? (
-                    <div className="space-y-2">
-                      {selectedApplicant.notices.map((n) => (
-                        <div
-                          key={n.id}
-                          className="bg-[#081024] border border-purple-950 rounded-lg p-2.5 flex items-center justify-between text-xs"
-                        >
-                          <div className="space-y-1">
-                            <div className="flex items-center space-x-2">
-                              <span className="font-bold text-purple-200">{n.reason || n.title}</span>
-                              {(n.amountToPay > 0) && (
-                                <span className="font-mono font-bold text-amber-400">৳ {Number(n.amountToPay).toLocaleString()}</span>
-                              )}
-                              {n.status === 'approved' ? (
-                                <span className="text-[9px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-500/50 px-2 py-0.5 rounded-full flex items-center space-x-1">
-                                  <CheckCircle size={10} className="text-emerald-400" />
-                                  <span>অ্যাপ্রুভড (Approved)</span>
-                                </span>
-                              ) : (
-                                <span className="text-[9px] font-bold bg-amber-950 text-amber-300 border border-amber-500/50 px-2 py-0.5 rounded-full">
-                                  সক্রিয় (Pending)
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[11px] text-slate-400 line-clamp-1">{n.description || n.message}</p>
-                          </div>
+                    <div className="overflow-x-auto rounded-xl border border-purple-950/80 bg-[#080f1e] shadow-inner">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-purple-950/80 text-slate-400 bg-[#0b1426] text-[11px]">
+                            <th className="py-2.5 px-3 font-semibold w-24">Image</th>
+                            <th className="py-2.5 px-3 font-semibold w-28">Title</th>
+                            <th className="py-2.5 px-3 font-semibold w-28">Amount</th>
+                            <th className="py-2.5 px-3 font-semibold">Description</th>
+                            <th className="py-2.5 px-3 font-semibold text-right w-24">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-purple-950/50">
+                          {selectedApplicant.notices.map((n) => (
+                            <tr key={n.id} className="hover:bg-purple-950/20 transition-colors">
+                              {/* Image Column: Slip thumbnail or placeholder */}
+                              <td className="py-3 px-3 align-top">
+                                {n.slipImage ? (
+                                  <div className="space-y-1">
+                                    <div
+                                      onClick={() => setPreviewSlipImage(n.slipImage)}
+                                      className="relative group cursor-pointer w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden border-2 border-purple-500/70 hover:border-purple-300 bg-slate-950 flex-shrink-0 transition-transform hover:scale-105 shadow-md shadow-purple-950/60"
+                                      title="ক্লিক করে বড় আকারে দেখুন"
+                                    >
+                                      <img
+                                        src={n.slipImage}
+                                        alt="Payment Slip"
+                                        className="w-full h-full object-cover"
+                                      />
+                                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                        <Eye size={18} className="text-white drop-shadow" />
+                                      </div>
+                                    </div>
+                                    <span className="text-[9px] font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-600/40 px-1.5 py-0.5 rounded inline-block text-center whitespace-nowrap">
+                                      স্লিপ জমা
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg border border-slate-800 bg-slate-900/50 flex flex-col items-center justify-center text-slate-500 text-[10px]">
+                                    <span className="text-slate-600 text-xs">—</span>
+                                    <span className="text-[8px] text-slate-600">ছবি নেই</span>
+                                  </div>
+                                )}
+                              </td>
 
-                          <div className="flex items-center space-x-1.5 ml-2 flex-shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleNoticeStatus(n.id, n.status)}
-                              className={`px-2 py-1 rounded text-[10px] font-semibold transition-all border ${
-                                n.status === 'approved'
-                                  ? 'bg-amber-950/60 hover:bg-amber-900 border-amber-700 text-amber-300'
-                                  : 'bg-emerald-950/60 hover:bg-emerald-900 border-emerald-700 text-emerald-300'
-                              }`}
-                              title={n.status === 'approved' ? 'পুনরায় সক্রিয় করুন' : 'অ্যাপ্রুভ করুন'}
-                            >
-                              {n.status === 'approved' ? 'সক্রিয় করুন' : 'অ্যাপ্রুভ করুন'}
-                            </button>
+                              {/* Title Column */}
+                              <td className="py-3 px-3 align-top">
+                                <span className="font-bold text-purple-200 block text-xs sm:text-sm">
+                                  {n.reason || n.title}
+                                </span>
+                                <div className="mt-1">
+                                  {n.status === 'approved' ? (
+                                    <span className="text-[9px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-500/50 px-2 py-0.5 rounded-full inline-flex items-center space-x-1">
+                                      <CheckCircle size={10} className="text-emerald-400" />
+                                      <span>অ্যাপ্রুভড</span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-[9px] font-bold bg-amber-950 text-amber-300 border border-amber-500/50 px-2 py-0.5 rounded-full inline-block">
+                                      সক্রিয় (Pending)
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
 
-                            <button
-                              onClick={() => handleDeleteNotice(n.id)}
-                              className="p-1 rounded bg-red-950 hover:bg-red-900 text-red-400 hover:text-white transition-all border border-red-900"
-                              title="মুছে ফেলুন"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                              {/* Amount Column */}
+                              <td className="py-3 px-3 align-top font-mono font-bold text-amber-400 text-xs sm:text-sm whitespace-nowrap">
+                                {n.amountToPay > 0 ? (
+                                  <span>৳ {Number(n.amountToPay).toLocaleString()}</span>
+                                ) : (
+                                  <span className="text-slate-500">৳ 0</span>
+                                )}
+                              </td>
+
+                              {/* Description Column */}
+                              <td className="py-3 px-3 align-top text-xs text-slate-300 leading-relaxed font-sans">
+                                <p className="whitespace-pre-line text-justify text-[11px] sm:text-xs">
+                                  {n.description || n.message}
+                                </p>
+                              </td>
+
+                              {/* Action Column */}
+                              <td className="py-3 px-3 align-top text-right">
+                                <div className="flex flex-col items-end space-y-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleNoticeStatus(n.id, n.status)}
+                                    className={`px-2.5 py-1 rounded text-[10px] font-semibold transition-all border whitespace-nowrap ${
+                                      n.status === 'approved'
+                                        ? 'bg-amber-950/60 hover:bg-amber-900 border-amber-700 text-amber-300'
+                                        : 'bg-emerald-950/60 hover:bg-emerald-900 border-emerald-700 text-emerald-300'
+                                    }`}
+                                    title={n.status === 'approved' ? 'পুনরায় সক্রিয় করুন' : 'অ্যাপ্রুভ করুন'}
+                                  >
+                                    {n.status === 'approved' ? 'সক্রিয় করুন' : 'অ্যাপ্রুভ করুন'}
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteNotice(n.id)}
+                                    className="p-1.5 rounded bg-red-950 hover:bg-red-900 text-red-400 hover:text-white transition-all border border-red-900"
+                                    title="মুছে ফেলুন"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   ) : (
                     <p className="text-xs text-slate-500 py-1 italic">No notices found.</p>
@@ -1199,6 +1447,55 @@ export default function StaffDashboardPage() {
 
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* FULL-SIZE SLIP PREVIEW LIGHTBOX */}
+      {previewSlipImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setPreviewSlipImage(null)}
+        >
+          <div
+            className="relative max-w-2xl w-full max-h-[90vh] bg-slate-900 border border-purple-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-3.5 border-b border-purple-900/50 bg-[#0c1527]">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-bold text-white">গ্রাহকের লেনদেনের স্লিপ</span>
+                <span className="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full font-semibold">
+                  পেমেন্ট স্লিপ
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewSlipImage(null)}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-all"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-4 overflow-auto flex-1 flex items-center justify-center bg-black/60 min-h-[300px]">
+              <img
+                src={previewSlipImage}
+                alt="Submitted Slip Full Size"
+                className="max-h-[75vh] w-auto max-w-full object-contain rounded-lg shadow-lg border border-slate-700"
+              />
+            </div>
+            <div className="p-3 border-t border-purple-900/50 bg-[#0c1527] flex justify-between items-center text-xs text-slate-400">
+              <span>লেনদেন স্লিপ ও টাকার পরিমাণ সতর্কতার সাথে যাচাই করুন</span>
+              <a
+                href={previewSlipImage}
+                target="_blank"
+                rel="noreferrer"
+                download="payment-slip.jpg"
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium text-xs flex items-center space-x-1"
+              >
+                <ExternalLink size={14} />
+                <span>নতুন ট্যাবে দেখুন</span>
+              </a>
+            </div>
           </div>
         </div>
       )}

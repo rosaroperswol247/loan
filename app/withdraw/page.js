@@ -39,14 +39,30 @@ export default function WithdrawPage() {
   // Copy state for agent numbers
   const [copiedKey, setCopiedKey] = useState(null);
 
-  // Agent numbers shown in Video 4 (0:21 to 0:38)
+  // Dynamic Agent numbers loaded from server settings (with fallbacks)
+  const [dynamicAgentNumbers, setDynamicAgentNumbers] = useState({
+    bkash: '01318047404',
+    nagad: '01706329691',
+    rocket: '18577394046',
+  });
+
   const agentNumbers = [
-    { key: 'bkash', name: 'বিকাশ', number: '01318047404', icon: Phone, color: 'text-pink-600 bg-pink-50 border-pink-200' },
-    { key: 'nagad', name: 'নগদ', number: '01706329691', icon: Phone, color: 'text-orange-600 bg-orange-50 border-orange-200' },
-    { key: 'rocket', name: 'রকেট', number: '18577394046', icon: Rocket, color: 'text-purple-600 bg-purple-50 border-purple-200' },
+    { key: 'bkash', name: 'বিকাশ', number: dynamicAgentNumbers.bkash || '01318047404', icon: Phone, color: 'text-pink-600 bg-pink-50 border-pink-200' },
+    { key: 'nagad', name: 'নগদ', number: dynamicAgentNumbers.nagad || '01706329691', icon: Phone, color: 'text-orange-600 bg-orange-50 border-orange-200' },
+    { key: 'rocket', name: 'রকেট', number: dynamicAgentNumbers.rocket || '18577394046', icon: Rocket, color: 'text-purple-600 bg-purple-50 border-purple-200' },
   ];
 
   useEffect(() => {
+    // Fetch live agent numbers
+    fetch('/api/settings/agent-numbers', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(res => {
+        if (res.success && res.numbers) {
+          setDynamicAgentNumbers(res.numbers);
+        }
+      })
+      .catch(() => {});
+
     const saved = localStorage.getItem('loan_user');
     if (!saved) {
       router.push('/login');
@@ -85,14 +101,50 @@ export default function WithdrawPage() {
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  const handleFileChange = (e) => {
+  const compressImage = (file, maxWidth = 1200, quality = 0.75) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > maxWidth || height > maxWidth) {
+            if (width > height) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            } else {
+              width = Math.round((width * maxWidth) / height);
+              height = maxWidth;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = () => reject(new Error('ছবি লোড করা যায়নি'));
+        img.src = e.target.result;
+      };
+      reader.onerror = () => reject(new Error('ফাইল পড়া যায়নি'));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setSlipImage(ev.target.result);
-      };
-      reader.readAsDataURL(file);
+      try {
+        setUploadError('');
+        const compressed = await compressImage(file);
+        setSlipImage(compressed);
+      } catch (err) {
+        console.error('Image compression error:', err);
+        setUploadError('ছবি প্রসেস করা যায়নি, অনুগ্রহ করে আবার চেষ্টা করুন');
+      }
     }
   };
 
@@ -112,20 +164,35 @@ export default function WithdrawPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           slipImage,
-          loanId: loan?.id || null
+          loanId: loan?.id || null,
+          userId: currentUser?.id || loan?.userId || null,
+          noticeId: activeNotice?.id || null,
+          reason: activeNotice?.reason || activeNotice?.title || 'সঞ্চয়',
+          amountToPay: activeNotice?.amountToPay || 3740,
+          description: activeNotice?.description || ''
         })
       });
 
-      const data = await res.json();
-      if (data.success) {
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success) {
         setUploadSuccess(data.message || 'আপনার লেনদেনের স্লিপটি সফলভাবে জমা দেওয়া হয়েছে! কর্তৃপক্ষ যাচাই করে দ্রুত টাকা ছাড় করবে।');
         setSlipImage('');
+        if (currentUser?.id) {
+          fetch(`/api/notices?userId=${currentUser.id}`, { cache: 'no-store' })
+            .then(r => r.json())
+            .then(resData => {
+              if (resData.success && resData.notices) {
+                setNotices(resData.notices);
+              }
+            })
+            .catch(() => {});
+        }
       } else {
-        setUploadError(data.message || 'স্লিপ আপলোড ব্যর্থ হয়েছে');
+        setUploadError(data?.message || 'স্লিপ আপলোড ব্যর্থ হয়েছে, অনুগ্রহ করে আবার চেষ্টা করুন');
       }
     } catch (err) {
       console.error(err);
-      setUploadError('সার্ভার ত্রুটি, অনুগ্রহ করে আবার চেষ্টা করুন');
+      setUploadError('সার্ভার ত্রুটি, অনুগ্রহ করে ইন্টারনেট সংযোগ পরীক্ষা করে আবার চেষ্টা করুন');
     } finally {
       setUploading(false);
     }
@@ -395,6 +462,26 @@ export default function WithdrawPage() {
                 <span>স্লিপ জমা সফল হয়েছে!</span>
               </div>
               <p className="text-[11px] text-emerald-700">{uploadSuccess}</p>
+            </div>
+          )}
+
+          {activeNotice?.slipImage && !slipImage && (
+            <div className="border border-emerald-300/80 bg-emerald-50/80 rounded-xl p-3 flex items-center justify-between">
+              <div className="flex items-center space-x-3 overflow-hidden">
+                <div className="w-14 h-14 rounded-lg border border-emerald-400 bg-white overflow-hidden flex-shrink-0 shadow-sm">
+                  <img src={activeNotice.slipImage} alt="Submitted Slip" className="w-full h-full object-cover" />
+                </div>
+                <div>
+                  <div className="flex items-center space-x-1 text-emerald-800 font-bold text-xs">
+                    <CheckCircle size={13} className="text-emerald-600" />
+                    <span>পূর্বে স্লিপ জমা দেওয়া হয়েছে</span>
+                  </div>
+                  <p className="text-[11px] text-emerald-700">কর্তৃপক্ষ যাচাই করে দ্রুত আপডেট করবে</p>
+                </div>
+              </div>
+              <span className="text-[10px] font-bold text-emerald-800 bg-emerald-200/90 border border-emerald-300 px-2 py-1 rounded-md flex-shrink-0">
+                গৃহীত হয়েছে
+              </span>
             </div>
           )}
 

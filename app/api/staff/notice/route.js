@@ -6,11 +6,17 @@ export const dynamic = 'force-dynamic';
 function toClientNotice(notice) {
   let amountToPay = 0;
   let description = notice.message || '';
+  let slipImage = '';
+  let slipSubmittedAt = null;
+  let hasSlip = false;
   try {
     const parsed = JSON.parse(notice.message);
     if (parsed && typeof parsed === 'object') {
       if (parsed.amountToPay !== undefined) amountToPay = Number(parsed.amountToPay);
       if (parsed.description !== undefined) description = parsed.description;
+      if (parsed.slipImage) slipImage = parsed.slipImage;
+      if (parsed.slipSubmittedAt) slipSubmittedAt = parsed.slipSubmittedAt;
+      if (parsed.hasSlip) hasSlip = true;
     }
   } catch {
     description = notice.message || '';
@@ -25,6 +31,9 @@ function toClientNotice(notice) {
     amountToPay,
     description,
     message: description,
+    slipImage,
+    slipSubmittedAt,
+    hasSlip: !!slipImage || hasSlip,
     status,
     createdAt: notice.created_at,
   };

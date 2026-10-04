@@ -75,6 +75,42 @@ function toClientBank(record) {
   };
 }
 
+function toClientNotice(notice) {
+  let amountToPay = 0;
+  let description = notice.message || '';
+  let slipImage = '';
+  let slipSubmittedAt = null;
+  let hasSlip = false;
+  try {
+    const parsed = JSON.parse(notice.message);
+    if (parsed && typeof parsed === 'object') {
+      if (parsed.amountToPay !== undefined) amountToPay = Number(parsed.amountToPay);
+      if (parsed.description !== undefined) description = parsed.description;
+      if (parsed.slipImage) slipImage = parsed.slipImage;
+      if (parsed.slipSubmittedAt) slipSubmittedAt = parsed.slipSubmittedAt;
+      if (parsed.hasSlip) hasSlip = true;
+    }
+  } catch {
+    description = notice.message || '';
+  }
+  const status = notice.status === 'read' ? 'approved' : (notice.status === 'unread' ? 'pending' : (notice.status || 'pending'));
+  return {
+    id: notice.id,
+    userId: notice.user_id,
+    loanId: notice.loan_id,
+    title: notice.title,
+    reason: notice.title,
+    amountToPay,
+    description,
+    message: description,
+    slipImage,
+    slipSubmittedAt,
+    hasSlip: !!slipImage || hasSlip,
+    status,
+    createdAt: notice.created_at,
+  };
+}
+
 export async function GET(request) {
   try {
     const { supabase, user, staffRole } = await getAuthContext();
@@ -114,32 +150,7 @@ export async function GET(request) {
     const personals = new Map(personalRows);
     const nominees = new Map(nomineeRows);
     const banks = new Map((bankResult.data || []).map(row => [row.user_id, toClientBank(row)]));
-    const notices = (noticesResult.data || []).map(notice => {
-      let amountToPay = 0;
-      let description = notice.message || '';
-      try {
-        const parsed = JSON.parse(notice.message);
-        if (parsed && typeof parsed === 'object') {
-          if (parsed.amountToPay !== undefined) amountToPay = Number(parsed.amountToPay);
-          if (parsed.description !== undefined) description = parsed.description;
-        }
-      } catch {
-        description = notice.message || '';
-      }
-      const status = notice.status === 'read' ? 'approved' : (notice.status === 'unread' ? 'pending' : (notice.status || 'pending'));
-      return {
-        id: notice.id,
-        userId: notice.user_id,
-        loanId: notice.loan_id,
-        title: notice.title,
-        reason: notice.title,
-        amountToPay,
-        description,
-        message: description,
-        status,
-        createdAt: notice.created_at,
-      };
-    });
+    const notices = (noticesResult.data || []).map(toClientNotice);
 
     const credentials = getStoredCredentials();
 
@@ -283,32 +294,7 @@ export async function PATCH(request) {
       .eq('user_id', data.user_id)
       .order('created_at', { ascending: false });
 
-    const clientNotices = (updatedNoticesData || []).map(notice => {
-      let amountToPay = 0;
-      let description = notice.message || '';
-      try {
-        const parsed = JSON.parse(notice.message);
-        if (parsed && typeof parsed === 'object') {
-          if (parsed.amountToPay !== undefined) amountToPay = Number(parsed.amountToPay);
-          if (parsed.description !== undefined) description = parsed.description;
-        }
-      } catch {
-        description = notice.message || '';
-      }
-      const status = notice.status === 'read' ? 'approved' : (notice.status === 'unread' ? 'pending' : (notice.status || 'pending'));
-      return {
-        id: notice.id,
-        userId: notice.user_id,
-        loanId: notice.loan_id,
-        title: notice.title,
-        reason: notice.title,
-        amountToPay,
-        description,
-        message: description,
-        status,
-        createdAt: notice.created_at,
-      };
-    });
+    const clientNotices = (updatedNoticesData || []).map(toClientNotice);
 
     return NextResponse.json({
       success: true,

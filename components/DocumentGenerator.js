@@ -146,6 +146,50 @@ export default function DocumentGenerator({ applicantData, onClose }) {
     }));
   };
 
+  const removeSignatureBackground = (dataUrl) => {
+    return new Promise((resolve) => {
+      if (!dataUrl || typeof dataUrl !== 'string') return resolve(dataUrl);
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const d = imgData.data;
+          for (let i = 0; i < d.length; i += 4) {
+            const r = d[i], g = d[i+1], b = d[i+2];
+            const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+            if (lum >= 215) {
+              d[i+3] = 0;
+            } else if (lum <= 100) {
+              d[i+3] = 255;
+            } else {
+              d[i+3] = Math.round(255 * (215 - lum) / (215 - 100));
+            }
+          }
+          ctx.putImageData(imgData, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        } catch {
+          resolve(dataUrl);
+        }
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  };
+
+  useEffect(() => {
+    if (userSignature) {
+      removeSignatureBackground(userSignature).then(clean => {
+        setDocFields(prev => ({ ...prev, signatureUrl: clean }));
+      }).catch(() => {});
+    }
+  }, [userSignature]);
+
   const handleSignatureUpload = (e) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -604,7 +648,7 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                       <div className="pt-3 flex items-end justify-between border-t border-slate-200">
                         <div className="space-y-0.5 text-[10px]">
                           <div className="h-8 mb-1 flex items-center">
-                            <img src="/documents/sig_officer.png" alt="Signature" className="h-full object-contain" />
+                            <img src="/documents/sig_officer.png" alt="Signature" className="h-full object-contain mix-blend-multiply select-none" />
                           </div>
                           <p className="font-medium text-slate-600">Sincerely,</p>
                           <p className="font-bold text-slate-900">{docFields.officerName || 'Md Hannan Mia'}</p>
@@ -740,9 +784,7 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                         <div className="text-center">
                           <div className="border-b-2 border-dotted border-slate-600 px-4 mb-0.5 h-8 flex items-center justify-center">
                             <img
-                              src="/documents/sig_officer.png"
-                              alt="Authorized Signature"
-                              className="h-full object-contain"
+                              src="/documents/sig_officer.png" alt="Authorized Signature" className="h-full object-contain mix-blend-multiply select-none"
                             />
                           </div>
                           <span className="text-[10px] font-bold text-slate-700">Authorized Signature</span>
@@ -854,9 +896,7 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                         <div className="text-center">
                           <div className="w-36 border-b border-slate-800 mb-1 h-7 flex items-center justify-center">
                             <img
-                              src="/documents/sig_officer.png"
-                              alt="Signature"
-                              className="h-full object-contain"
+                              src="/documents/sig_officer.png" alt="Signature" className="h-full object-contain mix-blend-multiply select-none"
                             />
                           </div>
                           <span className="text-[9px] text-slate-600 font-medium">Please Sign Above</span>
@@ -961,9 +1001,7 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                           <div className="text-center space-y-1">
                             <div className="w-28 sm:w-36 border-b border-slate-900 pb-0.5 h-7 sm:h-8 flex items-center justify-center">
                               <img
-                                src="/documents/sig_officer.png"
-                                alt="Bank Authority Signature"
-                                className="h-full object-contain"
+                                src="/documents/sig_officer.png" alt="Bank Authority Signature" className="h-full object-contain mix-blend-multiply select-none"
                               />
                             </div>
                             <span className="text-[9px] sm:text-[10px] font-bold text-slate-900">ব্যাংক কর্তৃপক্ষের স্বাক্ষর</span>
@@ -973,7 +1011,7 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                           <div className="text-center space-y-1">
                             <div className="w-28 sm:w-36 border-b border-slate-900 pb-0.5 flex items-center justify-center h-7 sm:h-8">
                               {docFields.signatureUrl ? (
-                                <img src={docFields.signatureUrl} alt="Signature" className="max-h-6 sm:max-h-7 max-w-[120px] object-contain" />
+                                <img src={docFields.signatureUrl} alt="Signature" className="max-h-6 sm:max-h-7 max-w-[120px] object-contain mix-blend-multiply select-none" />
                               ) : (
                                 <span className="font-serif italic text-blue-900 font-bold text-xs">{docFields.name}</span>
                               )}
@@ -1054,9 +1092,7 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                         <div className="text-left space-y-0.5">
                           <div className="w-28 sm:w-36 border-b border-slate-700 pb-0.5 h-7 sm:h-8 flex items-center">
                             <img
-                              src="/documents/sig_officer.png"
-                              alt="Signature"
-                              className="h-full object-contain"
+                              src="/documents/sig_officer.png" alt="Signature" className="h-full object-contain mix-blend-multiply select-none"
                             />
                           </div>
                           <p className="text-[9px] sm:text-[10px] font-bold text-slate-900">স্বাক্ষরিত</p>
@@ -1259,7 +1295,7 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                       <div className="text-center">
                         <div className="w-28 h-10 border-b border-slate-400 mb-1 flex items-center justify-center">
                           {docFields.signatureUrl ? (
-                            <img src={docFields.signatureUrl} alt="Receiver Signature" className="max-h-8 max-w-[95px] object-contain" />
+                            <img src={docFields.signatureUrl} alt="Receiver Signature" className="max-h-8 max-w-[95px] object-contain mix-blend-multiply select-none" />
                           ) : (
                             <span className="font-serif italic text-xs text-slate-800">{docFields.name}</span>
                           )}
@@ -1307,7 +1343,7 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                       <div className="text-center">
                         <div className="w-24 h-10 border-b border-slate-400 mb-1 flex items-center justify-center">
                           {docFields.signatureUrl ? (
-                            <img src={docFields.signatureUrl} alt="Applicant Signature" className="max-h-8 max-w-[95px] object-contain" />
+                            <img src={docFields.signatureUrl} alt="Applicant Signature" className="max-h-8 max-w-[95px] object-contain mix-blend-multiply select-none" />
                           ) : (
                             <span className="font-serif italic text-xs text-slate-800">{docFields.name}</span>
                           )}
@@ -1358,7 +1394,7 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                         <img
                           src={docFields.signatureUrl}
                           alt="Subject Signature"
-                          className="max-h-12 sm:max-h-16 md:max-h-20 max-w-full object-contain"
+                          className="max-h-12 sm:max-h-16 md:max-h-20 max-w-full object-contain mix-blend-multiply select-none"
                         />
                       ) : (
                         <span className="font-serif italic font-bold text-xs sm:text-sm text-slate-800">
@@ -1372,7 +1408,7 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                       <img
                         src="/documents/police_officer_signature.png"
                         alt="Officer in Charge Signature"
-                        className="max-h-16 sm:max-h-20 md:max-h-24 max-w-full object-contain"
+                        className="max-h-16 sm:max-h-20 md:max-h-24 max-w-full object-contain mix-blend-multiply select-none"
                       />
                     </div>
 

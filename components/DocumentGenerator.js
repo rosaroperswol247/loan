@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import html2canvas from 'html2canvas';
 import {
   FileCheck,
   Receipt,
@@ -15,7 +16,11 @@ import {
   Sparkles,
   X,
   Upload,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Copy,
+  Check,
+  FileText,
+  Download
 } from 'lucide-react';
 
 function toWordsBDT(num) {
@@ -64,6 +69,16 @@ function getDateDigits(dateStr) {
 
 export default function DocumentGenerator({ applicantData, onClose }) {
   const [selectedDoc, setSelectedDoc] = useState('approval');
+  const [copying, setCopying] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
+  const [contextMenu, setContextMenu] = useState(null); // { x, y }
+
+  // Dismiss context menu on any outside click
+  useEffect(() => {
+    const handleClickOutside = () => setContextMenu(null);
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, []);
 
   const todayStr = new Date().toLocaleDateString('en-GB'); // dd/mm/yyyy
 
@@ -187,6 +202,98 @@ export default function DocumentGenerator({ applicantData, onClose }) {
 
   const handleFieldChange = (field, value) => {
     setDocFields(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Open sleek custom context menu at right-click location
+  const handleContextMenu = (e) => {
+    e.preventDefault();
+    const menuWidth = 250;
+    const menuHeight = 220;
+    const x = Math.min(e.clientX, (typeof window !== 'undefined' ? window.innerWidth : 1200) - menuWidth - 10);
+    const y = Math.min(e.clientY, (typeof window !== 'undefined' ? window.innerHeight : 800) - menuHeight - 10);
+    setContextMenu({ x, y });
+  };
+
+  // Copy current live document (with all active dialogue field values) to clipboard
+  const handleCopyDocument = async () => {
+    setContextMenu(null);
+    setCopying(true);
+    try {
+      const el = document.getElementById('printable-doc');
+      if (!el) return;
+
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false
+      });
+
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      if (blob && navigator.clipboard && navigator.clipboard.write && window.ClipboardItem) {
+        try {
+          await navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': blob })
+          ]);
+          setCopySuccess(true);
+          setTimeout(() => setCopySuccess(false), 3000);
+          setCopying(false);
+          return;
+        } catch (err) {
+          console.warn('Clipboard image write failed, falling back to text', err);
+        }
+      }
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(el.innerText || '');
+        setCopySuccess(true);
+        setTimeout(() => setCopySuccess(false), 3000);
+      }
+    } catch (err) {
+      console.error('Failed to copy document:', err);
+    } finally {
+      setCopying(false);
+    }
+  };
+
+  const handleCopyText = async () => {
+    setContextMenu(null);
+    try {
+      const el = document.getElementById('printable-doc');
+      if (el && navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(el.innerText || '');
+        setCopySuccess(true);
+        setTimeout(() => setCopySuccess(false), 2500);
+      }
+    } catch (err) {
+      console.error('Failed to copy text:', err);
+    }
+  };
+
+  const handleDownloadImage = async () => {
+    setContextMenu(null);
+    try {
+      const el = document.getElementById('printable-doc');
+      if (!el) return;
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false
+      });
+      const url = canvas.toDataURL('image/jpeg', 0.95);
+      const link = document.createElement('a');
+      const docName = docTypes.find(d => d.id === selectedDoc)?.name || selectedDoc;
+      link.href = url;
+      link.download = `${docName}_${docFields.name}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error('Failed to download image:', err);
+    }
   };
 
   const dateDigits = getDateDigits(docFields.date);
@@ -475,21 +582,58 @@ export default function DocumentGenerator({ applicantData, onClose }) {
 
             {/* Right: Document Live Preview */}
             <div className="lg:col-span-7 flex flex-col space-y-2">
-              <div className="flex items-center justify-between no-print">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  Live Preview ({docTypes.find(d => d.id === selectedDoc)?.name})
-                </span>
-                <button
-                  onClick={handlePrint}
-                  className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs py-1.5 px-3 rounded-lg flex items-center space-x-1.5 shadow-sm transition-all"
-                >
-                  <Printer size={14} />
-                  <span>Print / Download PDF</span>
-                </button>
+              <div className="flex items-center justify-between no-print flex-wrap gap-2">
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                    Live Preview ({docTypes.find(d => d.id === selectedDoc)?.name})
+                  </span>
+                  <span className="text-[10px] text-cyan-300 bg-cyan-950/70 border border-cyan-800/50 px-2 py-0.5 rounded-full hidden sm:inline">
+                    🖱️ রাইট-ক্লিক করে কপি করতে পারবেন
+                  </span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={handleCopyDocument}
+                    disabled={copying}
+                    className="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-xs py-1.5 px-3 rounded-lg flex items-center space-x-1.5 shadow-md shadow-blue-600/30 transition-all disabled:opacity-50"
+                    title="ডকুমেন্ট কপি করুন (Right-click anywhere on document also works)"
+                  >
+                    {copySuccess ? (
+                      <>
+                        <Check size={14} className="text-emerald-300" />
+                        <span className="text-emerald-200">Copied!</span>
+                      </>
+                    ) : copying ? (
+                      <>
+                        <Sparkles size={14} className="animate-spin text-cyan-300" />
+                        <span>Copying...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={14} />
+                        <span>Copy Document</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handlePrint}
+                    className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs py-1.5 px-3 rounded-lg flex items-center space-x-1.5 shadow-sm transition-all"
+                  >
+                    <Printer size={14} />
+                    <span>Print / Download PDF</span>
+                  </button>
+                </div>
               </div>
 
               {/* Printable Document Container */}
-              <div id="printable-doc" className={`bg-white text-slate-900 rounded-xl shadow-2xl border border-slate-200 min-h-[500px] text-xs leading-relaxed font-sans relative overflow-hidden doc-container select-text ${selectedDoc === 'agreement' || selectedDoc === 'insurance' || selectedDoc === 'police' ? 'p-1 sm:p-2' : 'p-4 sm:p-6'}`}>
+              <div
+                id="printable-doc"
+                onContextMenu={handleContextMenu}
+                className={`bg-white text-slate-900 rounded-xl shadow-2xl border border-slate-200 min-h-[500px] text-xs leading-relaxed font-sans relative overflow-hidden doc-container select-text ${selectedDoc === 'agreement' || selectedDoc === 'insurance' || selectedDoc === 'police' ? 'p-1 sm:p-2' : 'p-4 sm:p-6'}`}
+                title="রাইট-ক্লিক করে কপি করতে পারবেন (Right-click to copy document)"
+              >
                 
                 {/* 1. APPROVAL LETTER (MyBank Official Template) */}
                 {selectedDoc === 'approval' && (
@@ -1401,6 +1545,91 @@ export default function DocumentGenerator({ applicantData, onClose }) {
           </div>
         </div>
       </div>
+
+      {/* Sleek Custom Right-Click Context Menu for the Document */}
+      {contextMenu && (
+        <div
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          className="fixed z-[999] bg-[#0c1527] border border-blue-500/60 shadow-2xl rounded-xl py-1.5 w-64 text-slate-200 text-xs backdrop-blur-md select-none"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-blue-900/50 flex items-center justify-between">
+            <span>Document Actions</span>
+            <span className="text-cyan-400 font-mono text-[9px]">Right-Click</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleCopyDocument}
+            className="w-full text-left px-3 py-2 hover:bg-blue-600/30 flex items-center space-x-2.5 text-white transition-colors group"
+          >
+            <div className="w-7 h-7 rounded-lg bg-blue-600/30 text-cyan-300 flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-colors">
+              <Copy size={14} />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-bold text-white">Copy Document</span>
+              <span className="text-[10px] text-slate-400">সম্পূর্ণ ডকুমেন্ট কপি করুন (Paste anywhere)</span>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleCopyText}
+            className="w-full text-left px-3 py-2 hover:bg-blue-600/30 flex items-center space-x-2.5 text-slate-200 hover:text-white transition-colors group"
+          >
+            <div className="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-colors">
+              <FileText size={14} />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-medium text-slate-200">Copy as Text</span>
+              <span className="text-[10px] text-slate-400">ডকুমেন্টের লেখা কপি করুন</span>
+            </div>
+          </button>
+
+          <div className="my-1 border-t border-blue-900/40"></div>
+
+          <button
+            type="button"
+            onClick={handleDownloadImage}
+            className="w-full text-left px-3 py-2 hover:bg-blue-600/30 flex items-center space-x-2.5 text-slate-200 hover:text-white transition-colors group"
+          >
+            <div className="w-7 h-7 rounded-lg bg-indigo-950 text-indigo-400 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+              <Download size={14} />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-medium text-slate-200">Save as JPG Image</span>
+              <span className="text-[10px] text-slate-400">ইমেজ হিসেবে ডাউনলোড করুন</span>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { setContextMenu(null); handlePrint(); }}
+            className="w-full text-left px-3 py-2 hover:bg-blue-600/30 flex items-center space-x-2.5 text-slate-200 hover:text-white transition-colors group"
+          >
+            <div className="w-7 h-7 rounded-lg bg-emerald-950 text-emerald-400 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+              <Printer size={14} />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-medium text-slate-200">Print / Save PDF</span>
+              <span className="text-[10px] text-slate-400">প্রিন্ট বা পিডিএফ তৈরি করুন</span>
+            </div>
+          </button>
+        </div>
+      )}
+
+      {/* Floating Success Toast */}
+      {copySuccess && (
+        <div className="fixed bottom-6 right-6 z-[1000] bg-slate-900/95 border border-emerald-500/70 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-3 backdrop-blur animate-in slide-in-from-bottom-3 duration-200">
+          <div className="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
+            <Check size={16} />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-emerald-300">Document Copied to Clipboard!</p>
+            <p className="text-[11px] text-slate-300">ডকুমেন্টটি কপি সম্পন্ন হয়েছে, যেকোনো জায়গায় Paste (Ctrl+V) করতে পারবেন।</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

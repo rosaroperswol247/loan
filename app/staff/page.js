@@ -140,9 +140,23 @@ export default function StaffDashboardPage() {
     fetchStaffData();
   }, [router]);
 
+  const getStaffHeaders = () => {
+    let session = '';
+    try {
+      session = localStorage.getItem('staff_session') || JSON.stringify({ role: 'staff' });
+    } catch {}
+    return {
+      'Content-Type': 'application/json',
+      'x-staff-session': session
+    };
+  };
+
   const fetchStaffData = async () => {
     try {
-      const res = await fetch('/api/staff/loans');
+      const res = await fetch('/api/staff/loans', {
+        headers: getStaffHeaders(),
+        cache: 'no-store'
+      });
       const data = await res.json();
       if (data.success) {
         setLoans(data.loans || []);
@@ -226,7 +240,7 @@ export default function StaffDashboardPage() {
     try {
       const res = await fetch('/api/staff/notice', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getStaffHeaders(),
         body: JSON.stringify({
           userId: selectedApplicant.userId || selectedApplicant.user?.id,
           loanId: selectedApplicant.id,
@@ -273,7 +287,7 @@ export default function StaffDashboardPage() {
     try {
       const res = await fetch('/api/staff/notice', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getStaffHeaders(),
         body: JSON.stringify({ id: noticeId, status: nextStatus })
       });
       const data = await res.json();
@@ -295,7 +309,10 @@ export default function StaffDashboardPage() {
 
   const handleDeleteNotice = async (noticeId) => {
     try {
-      const res = await fetch(`/api/staff/notice?id=${noticeId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/staff/notice?id=${noticeId}`, {
+        method: 'DELETE',
+        headers: getStaffHeaders()
+      });
       const data = await res.json();
       if (data.success && selectedApplicant) {
         if (data.notices) {
@@ -320,7 +337,10 @@ export default function StaffDashboardPage() {
 
     setDeletingId(loanId);
     try {
-      const res = await fetch(`/api/staff/loans?id=${loanId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/staff/loans?id=${loanId}`, {
+        method: 'DELETE',
+        headers: getStaffHeaders()
+      });
       const data = await res.json();
 
       if (data.success) {
@@ -361,7 +381,7 @@ export default function StaffDashboardPage() {
     try {
       const res = await fetch('/api/staff/loans', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getStaffHeaders(),
         body: JSON.stringify(body)
       });
 

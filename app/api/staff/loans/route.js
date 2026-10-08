@@ -113,7 +113,7 @@ function toClientNotice(notice) {
 
 export async function GET(request) {
   try {
-    const { supabase, user, staffRole } = await getAuthContext();
+    const { supabase, user, staffRole } = await getAuthContext(request);
     if (!user) return unauthorizedResponse();
     if (!staffRole) return forbiddenResponse();
 
@@ -210,7 +210,7 @@ export async function PATCH(request) {
       upgradeDescription,
       approvePreviousReason = true
     } = body;
-    const { supabase, user, staffRole } = await getAuthContext();
+    const { supabase, user, staffRole } = await getAuthContext(request);
     if (!user) return unauthorizedResponse();
     if (!staffRole) return forbiddenResponse();
 
@@ -311,7 +311,7 @@ export async function PATCH(request) {
 // DELETE a loan application
 export async function DELETE(request) {
   try {
-    const { supabase, user, staffRole } = await getAuthContext();
+    const { supabase, user, staffRole } = await getAuthContext(request);
     if (!user) return unauthorizedResponse();
     if (!staffRole) return forbiddenResponse();
 

@@ -43,7 +43,7 @@ export async function POST(request) {
   try {
     const body = await request.json();
     const { userId, loanId, title, reason, amountToPay, description, message, isUpgrade } = body;
-    const { supabase, user, staffRole } = await getAuthContext();
+    const { supabase, user, staffRole } = await getAuthContext(request);
     if (!user) return unauthorizedResponse();
     if (!staffRole) return forbiddenResponse();
 
@@ -97,7 +97,7 @@ export async function POST(request) {
 
 export async function PATCH(request) {
   try {
-    const { supabase, user, staffRole } = await getAuthContext();
+    const { supabase, user, staffRole } = await getAuthContext(request);
     if (!user) return unauthorizedResponse();
     if (!staffRole) return forbiddenResponse();
 
@@ -138,7 +138,7 @@ export async function PATCH(request) {
 
 export async function DELETE(request) {
   try {
-    const { supabase, user, staffRole } = await getAuthContext();
+    const { supabase, user, staffRole } = await getAuthContext(request);
     if (!user) return unauthorizedResponse();
     if (!staffRole) return forbiddenResponse();
 

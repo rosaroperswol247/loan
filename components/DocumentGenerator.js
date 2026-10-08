@@ -489,7 +489,7 @@ export default function DocumentGenerator({ applicantData, onClose }) {
               </div>
 
               {/* Printable Document Container */}
-              <div id="printable-doc" className={`bg-white text-slate-900 rounded-xl shadow-2xl border border-slate-200 min-h-[500px] text-xs leading-relaxed font-sans relative overflow-hidden doc-container ${selectedDoc === 'agreement' || selectedDoc === 'insurance' || selectedDoc === 'police' ? 'p-1 sm:p-2' : 'p-4 sm:p-6'}`}>
+              <div id="printable-doc" className={`bg-white text-slate-900 rounded-xl shadow-2xl border border-slate-200 min-h-[500px] text-xs leading-relaxed font-sans relative overflow-hidden doc-container select-text ${selectedDoc === 'agreement' || selectedDoc === 'insurance' || selectedDoc === 'police' ? 'p-1 sm:p-2' : 'p-4 sm:p-6'}`}>
                 
                 {/* 1. APPROVAL LETTER (MyBank Official Template) */}
                 {selectedDoc === 'approval' && (
@@ -870,7 +870,7 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                 {/* 4. AGREEMENT STAMP (Authentic chukti_potro.jpg Canvas & seal_approved_official.png) */}
                 {selectedDoc === 'agreement' && (
                   <div
-                    className="relative w-full max-w-[760px] mx-auto shadow-md rounded overflow-hidden select-none border border-slate-300"
+                    className="relative w-full max-w-[760px] mx-auto shadow-md rounded overflow-hidden border border-slate-300"
                     style={{ aspectRatio: '816 / 1293' }}
                   >
                     {/* The Authentic 100 Taka Stamp Document Canvas */}
@@ -918,17 +918,12 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                             )}
                           </div>
 
-                          {/* Authentic Red Circular Seal Overlaid on Photo */}
-                          <img
-                            src="/documents/seal_approved_official.png"
-                            alt="Loan Approved Seal"
-                            className="absolute -bottom-3 sm:-bottom-4 -left-4 sm:-left-6 w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 object-contain pointer-events-none transform -rotate-12 select-none drop-shadow"
-                          />
+
                         </div>
                       </div>
 
                       {/* Detailed Terms */}
-                      <div className="text-[9.5px] sm:text-[10.5px] md:text-[11px] leading-relaxed text-slate-950 space-y-1 sm:space-y-1.5 text-justify font-sans">
+                      <div className="relative text-[9.5px] sm:text-[10.5px] md:text-[11px] leading-relaxed text-slate-950 space-y-1 sm:space-y-1.5 text-justify font-sans select-text">
                         <p className="font-bold underline text-slate-950">শর্তাবলী:</p>
                         <p>
                           এই চুক্তি {docFields.date} তারিখে, সিনিয়র ঋণ কর্মকর্তা (মাই ব্যাংক ঋণ বাংলাদেশ এর পক্ষে) প্রথম পক্ষ এবং জনাব {docFields.name}, পিতাঃ {docFields.fatherName}, {docFields.address} দ্বিতীয় পক্ষ - এই দুই পক্ষের মধ্যে স্বাক্ষরিত হলো। যেহেতু দ্বিতীয় পক্ষের আবেদনের ভিত্তিতে প্রথম পক্ষ মাই ব্যাংক ঋণ বাংলাদেশ হতে তাকে ঋণের জন্য নির্বাচিত করেছে, সেহেতু দ্বিতীয় পক্ষ গ্রহণকৃত ঋণের সুদসহ আসল অর্থ যথাসময়ে পরিশোধে বাধ্য থাকবেন। মেয়াদ শেষে উভয় পক্ষ কর্তৃক একটি চুক্তিপত্র স্বাক্ষরিত হয়েছে।
@@ -944,6 +939,13 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                         <p>
                           অতঃপর এই চুক্তিপত্র সম্পর্কে কোনো বিভ্রান্তি অথবা ভুল বুঝাবুঝি থাকলে তা প্রথম পক্ষের গচ্ছিত নথিতে যুক্ত করা হবে এবং প্রথম পক্ষের সিদ্ধান্তই চূড়ান্ত বলে বিবেচিত হবে।
                         </p>
+
+                        {/* Authentic Red Circular Seal Overlaid on Conditions (Exact position per agrement seal niche nambe.jpeg) */}
+                        <img
+                          src="/documents/seal_approved_official.png"
+                          alt="Loan Approved Seal"
+                          className="absolute top-[38%] right-[12%] sm:right-[18%] w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 object-contain pointer-events-none transform -rotate-12 select-none drop-shadow-md opacity-90"
+                        />
                       </div>
 
                       {/* Signatures Row */}
@@ -983,7 +985,7 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                 {/* 5. INSURANCE (Authentic insurance_clean.jpg Canvas & jbc_seal_transparent.png) */}
                 {selectedDoc === 'insurance' && (
                   <div
-                    className="relative w-full max-w-[760px] mx-auto shadow-md rounded overflow-hidden select-none border border-slate-300"
+                    className="relative w-full max-w-[760px] mx-auto shadow-md rounded overflow-hidden border border-slate-300"
                     style={{ aspectRatio: '1684 / 2528' }}
                   >
                     {/* The Authentic Clean JBC Letterhead Canvas (Already contains official top header and title) */}
@@ -1165,13 +1167,22 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                             ৩২৫০/-
                           </td>
                           <td className="border border-black p-1.5"></td>
-                          {/* Real Scanned Pink Seal and Designation Block from 5.jpeg */}
-                          <td className="border border-black p-1 align-bottom">
-                            <img
-                              src="/documents/challan_officer_block.png"
-                              alt="NBR Seal and Designation"
-                              className="w-28 object-contain mx-auto block mb-1"
-                            />
+                          {/* Real Scanned Pink Circular Seal and Designation Block (chalan seal goal hobe.jpeg) */}
+                          <td className="border border-black p-1 align-bottom text-center">
+                            <div className="flex flex-col items-center justify-end space-y-1">
+                              <img
+                                src="/documents/challan_seal.png"
+                                alt="NBR Seal"
+                                className="w-16 h-16 sm:w-20 sm:h-20 object-contain aspect-square rounded-full mx-auto block"
+                              />
+                              <div className="text-[7.5px] sm:text-[8.5px] font-bold text-slate-900 leading-tight">
+                                <p className="font-extrabold text-[8.5px] sm:text-[9.5px]">মোঃ আবদুর রহমান খান</p>
+                                <p>এফসিএমএ</p>
+                                <p>সচিব, অভ্যন্তরীণ সম্পদ বিভাগ</p>
+                                <p>অর্থ মন্ত্রণালয়,</p>
+                                <p>চেয়ারম্যান, জাতীয় রাজস্ব বোর্ড, বাংলাদেশ</p>
+                              </div>
+                            </div>
                           </td>
                         </tr>
                         {/* Summary Total Row matching 5.jpeg */}
@@ -1317,7 +1328,7 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                 {/* 9. POLICE CLEARANCE CERTIFICATE (Authentic Template Canvas with Dynamic Overlays) */}
                 {selectedDoc === 'police' && (
                   <div
-                    className="relative w-full max-w-[680px] mx-auto shadow-md rounded overflow-hidden select-none border border-slate-300 bg-[#fbf8ee]"
+                    className="relative w-full max-w-[680px] mx-auto shadow-md rounded overflow-hidden border border-slate-300 bg-[#fbf8ee]"
                     style={{ aspectRatio: '1468 / 2912' }}
                   >
                     {/* The Authentic Bangladesh Police Clearance Certificate Template Background */}
@@ -1328,13 +1339,13 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                     />
 
                     {/* Report No & Date (Positioned below printed header and above printed title) */}
-                    <div className="absolute top-[32.0%] left-[10.5%] right-[10.5%] z-10 flex items-center justify-between text-[11px] sm:text-[13px] md:text-[14.5px] font-mono font-bold text-slate-900 tracking-wide select-none">
+                    <div className="absolute top-[32.0%] left-[10.5%] right-[10.5%] z-10 flex items-center justify-between text-[11px] sm:text-[13px] md:text-[14.5px] font-mono font-bold text-slate-900 tracking-wide select-text">
                       <span>REPORT NO: {docFields.reportNo || '32918'}</span>
                       <span>DATE: {docFields.date || '2026-10-02'}</span>
                     </div>
 
                     {/* Body Text (Positioned between printed title 'POLICE CLEARENCE CERTIFICATE.' and signatures) */}
-                    <div className="absolute top-[44.8%] left-[10.5%] right-[10.5%] z-10 space-y-4 sm:space-y-6 text-[10.5px] sm:text-[12.5px] md:text-[14.5px] text-slate-950 font-sans leading-relaxed text-justify select-none">
+                    <div className="absolute top-[44.8%] left-[10.5%] right-[10.5%] z-10 space-y-4 sm:space-y-6 text-[10.5px] sm:text-[12.5px] md:text-[14.5px] text-slate-950 font-sans leading-relaxed text-justify select-text">
                       <p>
                         Hereby after verification it is found that <strong>{docFields.name}</strong> [DOB:<strong>{docFields.dob || '02 May 1984'}</strong>] Father name is <strong>{docFields.fatherName}</strong> He is not involved in any illegal activities. No report has been received against him or any crime has been detected in the last three months. He is not involved in any criminal activities. And let&apos;s hope he doesn&apos;t get involved in any criminal activities in the future.
                       </p>
@@ -1369,7 +1380,7 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                     </div>
 
                     {/* Bottom Box text (Cleanly covers '[OFFICE ADDRESS].' inside the bottom border) */}
-                    <div className="absolute top-[89.8%] bottom-[4.2%] left-[11.2%] right-[11.2%] z-10 flex items-center justify-center text-center bg-[#fbf8e5] text-slate-900 font-sans font-medium text-[9.5px] sm:text-[11.5px] md:text-[13px] leading-snug px-3 select-none">
+                    <div className="absolute top-[89.8%] bottom-[4.2%] left-[11.2%] right-[11.2%] z-10 flex items-center justify-center text-center bg-[#fbf8e5] text-slate-900 font-sans font-medium text-[9.5px] sm:text-[11.5px] md:text-[13px] leading-snug px-3 select-text">
                       <span>This certificate is issued from the office of the Superintendent of Police.</span>
                     </div>
                   </div>

@@ -4,7 +4,7 @@ import { forbiddenResponse, getAuthContext, unauthorizedResponse } from '@/lib/a
 export async function PATCH(request) {
   try {
     const { userId, userBalance } = await request.json();
-    const { supabase, user, staffRole } = await getAuthContext();
+    const { supabase, user, staffRole } = await getAuthContext(request);
     if (!user) return unauthorizedResponse();
     if (!staffRole) return forbiddenResponse();
 

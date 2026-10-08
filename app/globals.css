@@ -55,3 +55,16 @@ body {
     print-color-adjust: exact !important;
   }
 }
+
+/* Document Generator: Enable precise individual text selection and copying */
+#printable-doc,
+#printable-doc * {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+#printable-doc img.pointer-events-none,
+#printable-doc .pointer-events-none {
+  user-select: none;
+  -webkit-user-select: none;
+}

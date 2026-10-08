@@ -25,7 +25,9 @@ import {
   PlusCircle,
   X,
   BadgeAlert,
-  Wallet
+  Wallet,
+  Info,
+  Check
 } from 'lucide-react';
 
 export default function CustomerDashboardPage() {
@@ -330,17 +332,23 @@ export default function CustomerDashboardPage() {
             )}
 
             {loan.status === 'pending' && (
-              <div className="w-full p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-amber-100/70 border border-amber-300 shadow-sm flex items-center justify-between text-amber-950">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-200 text-amber-800 flex items-center justify-center flex-shrink-0 shadow-inner">
-                    <Clock size={20} className="animate-spin" />
-                  </div>
-                  <div className="text-left">
-                    <span className="block font-black text-sm text-amber-900 leading-tight">
-                      আবেদন পর্যালোচনায় রয়েছে (Pending)
+              <div className="w-full p-4 sm:p-5 rounded-2xl md:rounded-3xl bg-[#eef7ff] border border-[#cde2fe] shadow-sm flex items-start space-x-3.5 text-slate-800">
+                <div className="w-11 h-11 md:w-12 md:h-12 rounded-full bg-[#4f8ff7] text-white flex items-center justify-center flex-shrink-0 shadow-md">
+                  <Info size={24} className="stroke-[2.5]" />
+                </div>
+                <div className="flex-1 text-left">
+                  <h3 className="font-extrabold text-base md:text-lg text-slate-900 tracking-tight leading-tight">
+                    আবেদন পর্যালোচনা চলছে
+                  </h3>
+                  <p className="text-xs md:text-sm text-slate-700 font-medium leading-relaxed mt-1.5">
+                    আপনার ঋণ আবেদনটি আমাদের বিশেষজ্ঞ টিম দ্রুততার সাথে যাচাই করছে। <span className="text-blue-600 font-bold">২৪-৪৮ ঘণ্টার</span> মধ্যে আপনি ইমেইল/SMS এর মাধ্যমে ফলাফল পাবেন।
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 mt-3">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full bg-white text-blue-600 text-[11px] md:text-xs font-bold border border-blue-100 shadow-sm">
+                      <Check size={12} className="mr-1 text-blue-600 stroke-[3]" /> তথ্য যাচাই হচ্ছে
                     </span>
-                    <span className="block text-[11px] text-amber-700 font-medium mt-0.5">
-                      এডমিন কর্তৃক ঋণ অনুমোদনের পর উত্তোলন অপশন সক্রিয় হবে
+                    <span className="inline-flex items-center px-3 py-1 rounded-full bg-white text-blue-600 text-[11px] md:text-xs font-bold border border-blue-100 shadow-sm">
+                      <Check size={12} className="mr-1 text-blue-600 stroke-[3]" /> দ্রুত প্রসেসিং
                     </span>
                   </div>
                 </div>

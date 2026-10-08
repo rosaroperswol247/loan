@@ -3,12 +3,78 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ClientHeader from '@/components/ClientHeader';
-import { Landmark, Bookmark, ArrowRight, CheckCircle, ShieldCheck } from 'lucide-react';
+import { Landmark, Bookmark, ArrowRight, CheckCircle, ShieldCheck, User } from 'lucide-react';
+
+const BANGLADESH_BANKS = [
+  // সরকারি বাণিজ্যিক ও বিশেষায়িত ব্যাংক (State-Owned & Specialized)
+  'সোনালী ব্যাংক পিএলসি (Sonali Bank PLC)',
+  'জনতা ব্যাংক পিএলসি (Janata Bank PLC)',
+  'অগ্রণী ব্যাংক পিএলসি (Agrani Bank PLC)',
+  'রূপালী ব্যাংক পিএলসি (Rupali Bank PLC)',
+  'বাংলাদেশ ডেভেলপমেন্ট ব্যাংক পিএলসি (BDBL)',
+  'বেসিক ব্যাংক লিমিটেড (BASIC Bank Limited)',
+  'বাংলাদেশ কৃষি ব্যাংক (Bangladesh Krishi Bank)',
+  'রাজশাহী কৃষি উন্নয়ন ব্যাংক (RAKUB)',
+  'প্রবাসী কল্যাণ ব্যাংক (Probashi Kallyan Bank)',
+  'কর্মসংস্থান ব্যাংক (Karmasangsthan Bank)',
+  'আনসার-ভিডিপি উন্নয়ন ব্যাংক (Ansar-VDP Unnayan Bank)',
+
+  // বেসরকারি বাণিজ্যিক ব্যাংকসমূহ (Private Commercial Banks)
+  'ব্র্যাক ব্যাংক পিএলসি (BRAC Bank PLC)',
+  'ডাচ-বাংলা ব্যাংক পিএলসি (Dutch-Bangla Bank PLC)',
+  'সিটি ব্যাংক পিএলসি (City Bank PLC)',
+  'ইস্টার্ন ব্যাংক পিএলসি (Eastern Bank PLC)',
+  'ইউনাইটেড কমার্শিয়াল ব্যাংক পিএলসি (UCB)',
+  'মিউচুয়াল ট্রাস্ট ব্যাংক পিএলসি (Mutual Trust Bank PLC)',
+  'প্রাইম ব্যাংক পিএলসি (Prime Bank PLC)',
+  'সাউথইস্ট ব্যাংক পিএলসি (Southeast Bank PLC)',
+  'ঢাকা ব্যাংক পিএলসি (Dhaka Bank PLC)',
+  'পূবালী ব্যাংক পিএলসি (Pubali Bank PLC)',
+  'উত্তরা ব্যাংক পিএলসি (Uttara Bank PLC)',
+  'ট্রাস্ট ব্যাংক লিমিটেড (Trust Bank Limited)',
+  'যমুনা ব্যাংক পিএলসি (Jamuna Bank PLC)',
+  'এনসিসি ব্যাংক পিএলসি (NCC Bank PLC)',
+  'ন্যাশনাল ব্যাংক লিমিটেড (National Bank Limited)',
+  'এবি ব্যাংক পিএলসি (AB Bank PLC)',
+  'ব্যাংক এশিয়া পিএলসি (Bank Asia PLC)',
+  'মার্কেন্টাইল ব্যাংক পিএলসি (Mercantile Bank PLC)',
+  'ওয়ান ব্যাংক পিএলসি (ONE Bank PLC)',
+  'প্রিমিয়ার ব্যাংক পিএলসি (Premier Bank PLC)',
+  'আইএফআইসি ব্যাংক পিএলসি (IFIC Bank PLC)',
+  'মিডল্যান্ড ব্যাংক লিমিটেড (Midland Bank Limited)',
+  'মধুমতি ব্যাংক লিমিটেড (Modhumoti Bank Limited)',
+  'এনআরবি ব্যাংক লিমিটেড (NRB Bank Limited)',
+  'এনআরবিসি ব্যাংক পিএলসি (NRBC Bank PLC)',
+  'মেঘনা ব্যাংক লিমিটেড (Meghna Bank Limited)',
+  'সীমান্ত ব্যাংক লিমিটেড (Shimanto Bank Limited)',
+  'পদ্মা ব্যাংক লিমিটেড (Padma Bank Limited)',
+  'বেঙ্গল কমার্শিয়াল ব্যাংক লিমিটেড (Bengal Commercial Bank)',
+  'সিটিজেন্স ব্যাংক পিএলসি (Citizens Bank PLC)',
+  'কমিউনিটি ব্যাংক বাংলাদেশ পিএলসি (Community Bank)',
+  'বাংলাদেশ কমার্স ব্যাংক লিমিটেড (BCBL)',
+
+  // ইসলামী ব্যাংকসমূহ (Islamic Banks)
+  'ইসলামী ব্যাংক বাংলাদেশ পিএলসি (Islami Bank Bangladesh)',
+  'আল-আরাফাহ্ ইসলামী ব্যাংক পিএলসি (Al-Arafah Islami Bank)',
+  'সোশ্যাল ইসলামী ব্যাংক পিএলসি (Social Islami Bank)',
+  'শাহ্জালাল ইসলামী ব্যাংক পিএলসি (Shahjalal Islami Bank)',
+  'এক্সিম ব্যাংক পিএলসি (EXIM Bank PLC)',
+  'ফার্স্ট সিকিউরিটি ইসলামী ব্যাংক পিএলসি (FSIBL)',
+  'গ্লোবাল ইসলামী ব্যাংক পিএলসি (Global Islami Bank)',
+  'ইউনিয়ন ব্যাংক পিএলসি (Union Bank PLC)',
+  'স্ট্যান্ডার্ড ব্যাংক পিএলসি (Standard Bank PLC)',
+  'আইসিবি ইসলামিক ব্যাংক লিমিটেড (ICB Islamic Bank)',
+
+  // অন্যান্য ব্যাংক
+  'অন্যান্য ব্যাংক (Other Bank)'
+];
 
 export default function BankInfoPage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState(null);
-  const [method, setMethod] = useState('bkash');
+  const [method, setMethod] = useState('bank');
+  const [bankName, setBankName] = useState('সোনালী ব্যাংক পিএলসি (Sonali Bank PLC)');
+  const [accountHolderName, setAccountHolderName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [savedData, setSavedData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -24,14 +90,17 @@ export default function BankInfoPage() {
     }
     const user = JSON.parse(saved);
     setCurrentUser(user);
+    setAccountHolderName(user.fullName || '');
 
     fetch(`/api/profile/bank?userId=${user.id}`)
       .then(res => res.json())
       .then(res => {
         if (res.success && res.data) {
           setSavedData(res.data);
-          setMethod(res.data.method || 'bkash');
+          setMethod(res.data.method || 'bank');
           setAccountNumber(res.data.accountNumber || '');
+          if (res.data.bankName) setBankName(res.data.bankName);
+          if (res.data.accountHolderName) setAccountHolderName(res.data.accountHolderName);
         }
       })
       .catch(console.error)
@@ -43,7 +112,17 @@ export default function BankInfoPage() {
     setError('');
     setSuccess('');
 
-    if (!accountNumber) {
+    if (method === 'bank' && !bankName) {
+      setError('অনুগ্রহ করে ব্যাংকের নাম নির্বাচন করুন');
+      return;
+    }
+
+    if (!accountHolderName.trim()) {
+      setError('অনুগ্রহ করে একাউন্ট হোল্ডারের নাম লিখুন');
+      return;
+    }
+
+    if (!accountNumber.trim()) {
       setError('অনুগ্রহ করে একাউন্ট নম্বর লিখুন');
       return;
     }
@@ -57,8 +136,8 @@ export default function BankInfoPage() {
           userId: currentUser.id,
           method,
           accountNumber: accountNumber.trim(),
-          bankName: method === 'bank' ? 'ব্যাংক একাউন্ট' : method.toUpperCase(),
-          accountHolderName: currentUser.fullName
+          bankName: method === 'bank' ? bankName : getMethodName(method),
+          accountHolderName: accountHolderName.trim()
         })
       });
 
@@ -140,6 +219,7 @@ export default function BankInfoPage() {
             </div>
 
             <form onSubmit={handleSave} className="space-y-3.5">
+              {/* Payment Method Selector */}
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">
                   পেমেন্ট মাধ্যম
@@ -153,9 +233,9 @@ export default function BankInfoPage() {
                     onChange={(e) => setMethod(e.target.value)}
                     className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white appearance-none"
                   >
+                    <option value="bank">ব্যাংক</option>
                     <option value="bkash">বিকাশ</option>
                     <option value="nagad">নগদ</option>
-                    <option value="bank">ব্যাংক</option>
                     <option value="rocket">রকেট</option>
                   </select>
                   <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">
@@ -164,16 +244,64 @@ export default function BankInfoPage() {
                 </div>
               </div>
 
+              {/* Bank Name Selector - All Government & Private Banks */}
+              {method === 'bank' && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    ব্যাংক নির্বাচন করুন *
+                  </label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
+                      <Landmark size={15} />
+                    </span>
+                    <select
+                      value={bankName}
+                      onChange={(e) => setBankName(e.target.value)}
+                      className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white appearance-none"
+                      required
+                    >
+                      {BANGLADESH_BANKS.map((b) => (
+                        <option key={b} value={b}>{b}</option>
+                      ))}
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">
+                      ▼
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Account Holder Name */}
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  আপনার একাউন্ট নম্বর লিখুন *
+                  একাউন্ট হোল্ডারের নাম *
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
+                    <User size={15} />
+                  </span>
+                  <input
+                    type="text"
+                    value={accountHolderName}
+                    onChange={(e) => setAccountHolderName(e.target.value)}
+                    placeholder="হিসাবধারীর পূর্ণ নাম লিখুন"
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Account Number */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  {method === 'bank' ? 'ব্যাংক একাউন্ট নম্বর লিখুন *' : 'মোবাইল ব্যাংকিং নম্বর লিখুন *'}
                 </label>
                 <input
                   type="text"
                   value={accountNumber}
                   onChange={(e) => setAccountNumber(e.target.value)}
-                  placeholder="০১XXXXXXXXX বা ব্যাংক একাউন্ট নম্বর"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                  placeholder={method === 'bank' ? 'ব্যাংক হিসাব নম্বর লিখুন' : '০১XXXXXXXXX'}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white font-mono"
                   required
                 />
               </div>
@@ -203,18 +331,24 @@ export default function BankInfoPage() {
             </div>
 
             {savedData ? (
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-1">
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-1.5">
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-slate-500 font-medium">মাধ্যম:</span>
                   <span className="font-bold text-blue-700 capitalize">{getMethodName(savedData.method)}</span>
                 </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500 font-medium">একাউন্ট নম্বর:</span>
-                  <span className="font-mono font-bold text-slate-800">{savedData.accountNumber}</span>
-                </div>
+                {savedData.method === 'bank' && savedData.bankName && (
+                  <div className="flex justify-between items-start text-xs">
+                    <span className="text-slate-500 font-medium">ব্যাংক:</span>
+                    <span className="font-bold text-slate-800 text-right max-w-[200px]">{savedData.bankName}</span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-slate-500 font-medium">হোল্ডার নেম:</span>
-                  <span className="font-semibold text-slate-700">{savedData.accountHolderName || currentUser?.fullName}</span>
+                  <span className="font-semibold text-slate-800">{savedData.accountHolderName || currentUser?.fullName}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500 font-medium">একাউন্ট নম্বর:</span>
+                  <span className="font-mono font-bold text-slate-900">{savedData.accountNumber}</span>
                 </div>
               </div>
             ) : (

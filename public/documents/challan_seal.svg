@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 500 500" width="500" height="500">
+  <defs>
+    <!-- Top Arc Path (Clockwise) -->
+    <path id="topArc" d="M 60,250 A 190,190 0 0,1 440,250" fill="none" />
+    <!-- Bottom Arc Path (Counter-Clockwise so text appears upright at bottom) -->
+    <path id="bottomArc" d="M 440,250 A 190,190 0 0,1 60,250" fill="none" />
+  </defs>
+
+  <!-- Outer Double Circular Ring -->
+  <circle cx="250" cy="250" r="242" fill="none" stroke="#d81b60" stroke-width="5" />
+  <circle cx="250" cy="250" r="234" fill="none" stroke="#d81b60" stroke-width="2" />
+
+  <!-- Inner Concentric Rings -->
+  <circle cx="250" cy="250" r="142" fill="none" stroke="#d81b60" stroke-width="2" />
+  <circle cx="250" cy="250" r="135" fill="none" stroke="#d81b60" stroke-width="4" />
+
+  <!-- Center Solid Magenta Circle -->
+  <circle cx="250" cy="250" r="124" fill="#d81b60" />
+
+  <!-- Center Map of Bangladesh Silhouette (Clean stylized map) -->
+  <path d="M 245,150 
+           C 255,148 268,155 272,165 
+           C 278,175 288,182 284,195 
+           C 280,208 292,216 288,232 
+           C 284,244 300,256 295,270 
+           C 290,282 274,290 270,302 
+           C 266,310 250,306 242,298 
+           C 234,290 238,274 230,266 
+           C 222,258 210,262 206,250 
+           C 202,238 214,226 218,214 
+           C 222,202 218,190 226,178 
+           C 234,166 237,152 245,150 Z" 
+        fill="#ffffff" />
+  
+  <!-- Map Detail Nodes -->
+  <circle cx="218" cy="275" r="4" fill="#ffffff" />
+  <circle cx="275" cy="315" r="5" fill="#ffffff" />
+
+  <!-- Left and Right Decorative Stars -->
+  <text x="56" y="258" font-size="22" fill="#d81b60" text-anchor="middle" font-weight="bold">★</text>
+  <text x="444" y="258" font-size="22" fill="#d81b60" text-anchor="middle" font-weight="bold">★</text>
+
+  <!-- Top Curved Text: মোঃ আবদুর রহমান খান এফসিএমএ -->
+  <text fill="#d81b60" font-size="26" font-family="'Kalpurush', 'SolaimanLipi', 'Nirmala UI', 'Vrinda', sans-serif" font-weight="900" letter-spacing="1">
+    <textPath xlink:href="#topArc" href="#topArc" startOffset="50%" text-anchor="middle">
+      মোঃ আবদুর রহমান খান এফসিএমএ
+    </textPath>
+  </text>
+
+  <!-- Bottom Curved Text: সচিব ও চেয়ারম্যান, জাতীয় রাজস্ব বোর্ড -->
+  <text fill="#d81b60" font-size="22" font-family="'Kalpurush', 'SolaimanLipi', 'Nirmala UI', 'Vrinda', sans-serif" font-weight="900" letter-spacing="0.5">
+    <textPath xlink:href="#bottomArc" href="#bottomArc" startOffset="50%" text-anchor="middle">
+      সচিব ও চেয়ারম্যান, জাতীয় রাজস্ব বোর্ড
+    </textPath>
+  </text>
+</svg>

@@ -940,11 +940,11 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                           অতঃপর এই চুক্তিপত্র সম্পর্কে কোনো বিভ্রান্তি অথবা ভুল বুঝাবুঝি থাকলে তা প্রথম পক্ষের গচ্ছিত নথিতে যুক্ত করা হবে এবং প্রথম পক্ষের সিদ্ধান্তই চূড়ান্ত বলে বিবেচিত হবে।
                         </p>
 
-                        {/* Authentic Red Circular Seal Overlaid on Conditions (Exact position per agrement seal niche nambe.jpeg) */}
+                        {/* Authentic Red Circular Seal Overlaid on Conditions (Raised 1.5 inches higher up per user instruction) */}
                         <img
                           src="/documents/seal_approved_official.png"
                           alt="Loan Approved Seal"
-                          className="absolute top-[2%] right-[10%] sm:right-[15%] w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 object-contain pointer-events-none transform -rotate-12 select-none drop-shadow-md opacity-90"
+                          className="absolute top-[-75px] sm:top-[-90px] md:top-[-110px] right-[10%] sm:right-[15%] w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 object-contain pointer-events-none transform -rotate-12 select-none drop-shadow-md opacity-90"
                         />
                       </div>
 
@@ -995,6 +995,15 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                       className="absolute inset-0 w-full h-full object-fill pointer-events-none select-none"
                     />
 
+                    {/* Bangladesh Govt Logo Official Watermark ('jolchap') Centered in the middle */}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+                      <img
+                        src="/documents/insurance_watermark.png"
+                        alt="Bangladesh Govt Watermark"
+                        className="w-[62%] max-w-[440px] aspect-square object-contain opacity-20 pointer-events-none select-none"
+                      />
+                    </div>
+
                     {/* Overlay Content positioned precisely below the printed title and above the bottom footer */}
                     <div className="absolute top-[16.5%] bottom-[19%] left-[7.5%] right-[7.5%] z-10 flex flex-col justify-between font-sans text-slate-950">
                       <div className="space-y-3 sm:space-y-4">
@@ -1025,11 +1034,11 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                                 </div>
                               )}
                             </div>
-                            {/* Authentic Circular JBC Official Rubber Stamp */}
+                            {/* Authentic Circular JBC Official Rubber Stamp (Exact match to media_1791453290004.jpg) */}
                             <img
                               src="/documents/jbc_seal_official.png"
                               alt="JBC Official Seal"
-                              className="absolute -bottom-4 sm:-bottom-5 -left-5 sm:-left-7 w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 object-contain pointer-events-none transform -rotate-6 select-none drop-shadow-md"
+                              className="absolute -bottom-5 sm:-bottom-6 -left-6 sm:-left-8 w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 object-contain pointer-events-none transform -rotate-6 select-none drop-shadow-md"
                             />
                           </div>
                         </div>
@@ -1171,7 +1180,7 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                           <td className="border border-black p-1 align-bottom text-center">
                             <div className="flex flex-col items-center justify-end space-y-1">
                               <img
-                                src="/documents/challan_seal.svg"
+                                src="/documents/challan_seal.png"
                                 alt="NBR Seal"
                                 className="w-18 h-18 sm:w-22 sm:h-22 object-contain aspect-square rounded-full mx-auto block drop-shadow-sm"
                               />

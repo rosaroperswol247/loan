@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import html2canvas from 'html2canvas';
+import { useState, useEffect } from 'react';
 import {
   FileCheck,
   Receipt,
@@ -16,14 +15,7 @@ import {
   Sparkles,
   X,
   Upload,
-  Image as ImageIcon,
-  Copy,
-  Check,
-  Download,
-  Maximize2,
-  RefreshCw,
-  Eye,
-  FileText
+  Image as ImageIcon
 } from 'lucide-react';
 
 function toWordsBDT(num) {
@@ -70,13 +62,8 @@ function getDateDigits(dateStr) {
   return arr;
 }
 
-export default function DocumentGenerator({ applicantData, onClose, onSaveDoc }) {
+export default function DocumentGenerator({ applicantData, onClose }) {
   const [selectedDoc, setSelectedDoc] = useState('approval');
-  const [generatedJpgs, setGeneratedJpgs] = useState({});
-  const [capturing, setCapturing] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [enlargedJpg, setEnlargedJpg] = useState(null);
-  const [viewMode, setViewMode] = useState('jpg'); // 'jpg' format by default as requested!
 
   const todayStr = new Date().toLocaleDateString('en-GB'); // dd/mm/yyyy
 
@@ -202,145 +189,7 @@ export default function DocumentGenerator({ applicantData, onClose, onSaveDoc })
     setDocFields(prev => ({ ...prev, [field]: value }));
   };
 
-  // High Resolution JPG Capture of the Document
-  const captureDocAsJpg = async (docIdToCapture = selectedDoc) => {
-    if (typeof window === 'undefined') return null;
-    const el = document.getElementById('printable-doc');
-    if (!el) return null;
-    try {
-      setCapturing(true);
-      await new Promise(r => setTimeout(r, 160));
-      if (document.fonts && document.fonts.ready) {
-        await document.fonts.ready;
-      }
-
-      const canvas = await html2canvas(el, {
-        scale: 2, // 2x crispness (1520px width)
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-      });
-
-      const jpgUrl = canvas.toDataURL('image/jpeg', 0.95);
-      setGeneratedJpgs(prev => ({ ...prev, [docIdToCapture]: jpgUrl }));
-
-      const docName = docTypes.find(d => d.id === docIdToCapture)?.name || docIdToCapture;
-      const applicantKey = applicantData?.id || applicantData?.user?.id || 'default';
-      const storageKey = `loan_generated_docs_${applicantKey}`;
-
-      try {
-        const existing = JSON.parse(localStorage.getItem(storageKey) || '{}');
-        existing[docIdToCapture] = {
-          id: docIdToCapture,
-          name: docName,
-          jpgUrl: jpgUrl,
-          generatedAt: new Date().toISOString()
-        };
-        localStorage.setItem(storageKey, JSON.stringify(existing));
-      } catch (e) {
-        console.error('Storage save error:', e);
-      }
-
-      if (onSaveDoc) {
-        onSaveDoc({
-          id: docIdToCapture,
-          name: docName,
-          jpgUrl: jpgUrl,
-          generatedAt: new Date().toISOString()
-        });
-      }
-
-      setCapturing(false);
-      return jpgUrl;
-    } catch (err) {
-      console.error('Document capture error:', err);
-      setCapturing(false);
-      return null;
-    }
-  };
-
-  // Load any previously saved JPGs for this applicant on mount
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const applicantKey = applicantData?.id || applicantData?.user?.id || 'default';
-    const storageKey = `loan_generated_docs_${applicantKey}`;
-    try {
-      const existing = JSON.parse(localStorage.getItem(storageKey) || '{}');
-      if (existing && Object.keys(existing).length > 0) {
-        const loaded = {};
-        Object.keys(existing).forEach(k => {
-          loaded[k] = existing[k].jpgUrl;
-        });
-        setGeneratedJpgs(prev => ({ ...loaded, ...prev }));
-      }
-    } catch (e) {
-      console.error('Storage load error:', e);
-    }
-  }, [applicantData]);
-
-  // Auto capture as JPG whenever selectedDoc changes
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      captureDocAsJpg(selectedDoc);
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [selectedDoc]);
-
-  // Copy Image directly to System Clipboard
-  const handleCopyJpg = async (targetUrl = generatedJpgs[selectedDoc]) => {
-    if (!targetUrl || typeof window === 'undefined') return;
-    try {
-      const img = new Image();
-      img.src = targetUrl;
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-      });
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth || img.width;
-      canvas.height = img.naturalHeight || img.height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-
-      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-      if (blob && navigator.clipboard && navigator.clipboard.write) {
-        try {
-          await navigator.clipboard.write([
-            new ClipboardItem({ 'image/png': blob })
-          ]);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2500);
-          return;
-        } catch (writeErr) {
-          console.warn('Clipboard write failed, falling back', writeErr);
-        }
-      }
-
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(targetUrl);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2500);
-      }
-    } catch (err) {
-      console.error('Failed to copy image:', err);
-    }
-  };
-
-  // Download JPG file
-  const handleDownloadJpg = (targetUrl = generatedJpgs[selectedDoc]) => {
-    if (!targetUrl || typeof window === 'undefined') return;
-    const docName = docTypes.find(d => d.id === selectedDoc)?.name || selectedDoc;
-    const link = document.createElement('a');
-    link.href = targetUrl;
-    link.download = `${docName}_${docFields.name}.jpg`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   const dateDigits = getDateDigits(docFields.date);
-  const currentJpg = generatedJpgs[selectedDoc];
 
   return (
     <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
@@ -615,159 +464,32 @@ export default function DocumentGenerator({ applicantData, onClose, onSaveDoc })
 
                 <button
                   type="button"
-                  onClick={() => captureDocAsJpg(selectedDoc)}
-                  disabled={capturing}
-                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-2.5 px-4 rounded-lg flex items-center justify-center space-x-2 shadow-lg shadow-blue-600/30 transition-all mt-2 disabled:opacity-60"
+                  onClick={() => setGenerated(true)}
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center space-x-2 shadow-lg shadow-blue-600/30 transition-all mt-2"
                 >
-                  {capturing ? (
-                    <>
-                      <Sparkles size={16} className="animate-spin text-cyan-300" />
-                      <span>Creating JPG Document...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles size={16} />
-                      <span>Update & Generate JPG Image</span>
-                    </>
-                  )}
+                  <Sparkles size={15} />
+                  <span>Update Live Preview</span>
                 </button>
               </div>
             </div>
 
-            {/* Right: Document Live Preview & JPG Image Display */}
+            {/* Right: Document Live Preview */}
             <div className="lg:col-span-7 flex flex-col space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2 no-print bg-[#081024] p-2.5 rounded-xl border border-blue-900/40">
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center space-x-1.5">
-                    <ImageIcon size={15} className="text-cyan-400" />
-                    <span>{docTypes.find(d => d.id === selectedDoc)?.name}</span>
-                  </span>
-                  <span className="text-[10px] bg-emerald-950 border border-emerald-500/40 text-emerald-300 font-bold px-2 py-0.5 rounded-full flex items-center space-x-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span>JPG Format</span>
-                  </span>
-                </div>
-
-                {/* Action Buttons: Copy Image, Download JPG, Print PDF, View Mode */}
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => handleCopyJpg()}
-                    disabled={!currentJpg || capturing}
-                    className="bg-blue-600 hover:bg-blue-500 active:scale-95 disabled:opacity-50 text-white font-bold text-xs py-1.5 px-3 rounded-lg flex items-center space-x-1.5 shadow-md shadow-blue-600/30 transition-all"
-                    title="Copy JPG Image directly to Clipboard"
-                  >
-                    {copied ? (
-                      <>
-                        <Check size={14} className="text-emerald-300" />
-                        <span className="text-emerald-200">Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy size={14} />
-                        <span>Copy Image</span>
-                      </>
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleDownloadJpg()}
-                    disabled={!currentJpg || capturing}
-                    className="bg-indigo-600 hover:bg-indigo-500 active:scale-95 disabled:opacity-50 text-white font-bold text-xs py-1.5 px-3 rounded-lg flex items-center space-x-1.5 shadow transition-all"
-                    title="Download JPG file"
-                  >
-                    <Download size={14} />
-                    <span>Download JPG</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handlePrint}
-                    className="bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 hover:text-white font-bold text-xs py-1.5 px-2.5 rounded-lg flex items-center space-x-1 shadow transition-all"
-                    title="Print / Save PDF"
-                  >
-                    <Printer size={14} />
-                    <span>PDF</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setViewMode(prev => prev === 'jpg' ? 'template' : 'jpg')}
-                    className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs flex items-center space-x-1 transition-all"
-                    title={viewMode === 'jpg' ? 'Switch to Live Template HTML' : 'Switch to JPG Image View'}
-                  >
-                    {viewMode === 'jpg' ? <FileText size={14} /> : <ImageIcon size={14} />}
-                  </button>
-                </div>
+              <div className="flex items-center justify-between no-print">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  Live Preview ({docTypes.find(d => d.id === selectedDoc)?.name})
+                </span>
+                <button
+                  onClick={handlePrint}
+                  className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs py-1.5 px-3 rounded-lg flex items-center space-x-1.5 shadow-sm transition-all"
+                >
+                  <Printer size={14} />
+                  <span>Print / Download PDF</span>
+                </button>
               </div>
 
-              {/* Display Container: Shows the Image in JPG Format */}
-              {viewMode === 'jpg' ? (
-                <div className="relative bg-[#060c1d] border border-blue-900/40 rounded-xl p-2 sm:p-3 overflow-hidden shadow-2xl flex flex-col items-center min-h-[500px] justify-center">
-                  {capturing ? (
-                    <div className="flex flex-col items-center justify-center space-y-3 p-8 text-center">
-                      <Sparkles size={32} className="animate-spin text-cyan-400" />
-                      <span className="text-xs font-bold text-cyan-200">Generating high-resolution JPG format...</span>
-                      <span className="text-[10px] text-slate-400">ডকুমেন্টটি জেপিজি ইমেজে রূপান্তর করা হচ্ছে...</span>
-                    </div>
-                  ) : currentJpg ? (
-                    <div className="w-full flex flex-col items-center space-y-2">
-                      <div
-                        onClick={() => setEnlargedJpg(currentJpg)}
-                        className="relative w-full cursor-pointer overflow-hidden rounded-lg bg-white border border-slate-300 shadow-md group hover:border-cyan-400 hover:shadow-cyan-900/30 transition-all flex items-center justify-center"
-                        title="Click to watch and enlarge this document image"
-                      >
-                        <img
-                          src={currentJpg}
-                          alt={`${docTypes.find(d => d.id === selectedDoc)?.name} (JPG)`}
-                          className="w-full h-auto object-contain mx-auto select-none"
-                        />
-
-                        {/* Hover Overlay Hint */}
-                        <div className="absolute inset-0 bg-blue-950/40 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity text-white text-xs font-bold gap-1 pointer-events-none">
-                          <div className="bg-black/85 px-3.5 py-2 rounded-xl flex items-center space-x-2 shadow-2xl border border-cyan-400/30">
-                            <Maximize2 size={16} className="text-cyan-400" />
-                            <span>ক্লিক করে বড় করে দেখুন (Click to Watch & Enlarge)</span>
-                          </div>
-                          <span className="text-[10px] text-blue-200 bg-black/70 px-2 py-0.5 rounded">
-                            অথবা মাউসের রাইট ক্লিক করে &apos;Copy image&apos; করুন
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Bottom Helper Bar */}
-                      <div className="w-full flex items-center justify-between text-[10px] text-slate-400 px-1 pt-1">
-                        <span className="text-emerald-400 font-semibold">✓ জেপিজি ইমেজ প্রদর্শিত (JPG image format displayed)</span>
-                        <span className="text-cyan-400">ক্লিক করে ফুল-স্ক্রিনে দেখুন ও কপি করুন</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center space-y-3 p-8 text-center text-slate-400">
-                      <ImageIcon size={36} className="text-slate-600" />
-                      <button
-                        onClick={() => captureDocAsJpg(selectedDoc)}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-lg shadow-md"
-                      >
-                        Generate JPG Image
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : null}
-
-              {/* Printable Document Container (Rendered at exact 760px width for pristine html2canvas capture; off-screen in JPG mode or inline in template mode) */}
-              <div
-                id="printable-doc"
-                className={`bg-white text-slate-900 rounded-xl shadow-2xl border border-slate-200 text-xs leading-relaxed font-sans relative overflow-hidden doc-container select-text ${
-                  viewMode === 'jpg'
-                    ? 'fixed -left-[9999px] top-0 pointer-events-none'
-                    : 'min-h-[500px]'
-                } ${
-                  selectedDoc === 'agreement' || selectedDoc === 'insurance' || selectedDoc === 'police' ? 'p-1 sm:p-2' : 'p-4 sm:p-6'
-                }`}
-                style={{ width: '760px', maxWidth: '760px' }}
-              >
+              {/* Printable Document Container */}
+              <div id="printable-doc" className={`bg-white text-slate-900 rounded-xl shadow-2xl border border-slate-200 min-h-[500px] text-xs leading-relaxed font-sans relative overflow-hidden doc-container select-text ${selectedDoc === 'agreement' || selectedDoc === 'insurance' || selectedDoc === 'police' ? 'p-1 sm:p-2' : 'p-4 sm:p-6'}`}>
                 
                 {/* 1. APPROVAL LETTER (MyBank Official Template) */}
                 {selectedDoc === 'approval' && (
@@ -1679,79 +1401,6 @@ export default function DocumentGenerator({ applicantData, onClose, onSaveDoc })
           </div>
         </div>
       </div>
-
-      {/* Enlarged JPG Lightbox Modal */}
-      {enlargedJpg && (
-        <div
-          className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-3 sm:p-6"
-          onClick={() => setEnlargedJpg(null)}
-        >
-          {/* Top Floating Control Bar */}
-          <div
-            className="w-full max-w-4xl flex items-center justify-between bg-slate-900/95 border border-blue-500/40 px-4 py-2.5 rounded-xl mb-3 shadow-2xl backdrop-blur text-white"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center space-x-2">
-              <ImageIcon size={18} className="text-cyan-400" />
-              <span className="font-bold text-sm sm:text-base tracking-wide">
-                {docTypes.find((d) => d.id === selectedDoc)?.name} — JPG Format
-              </span>
-              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-mono px-2 py-0.5 rounded border border-emerald-500/30">
-                Ready to Copy
-              </span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <button
-                type="button"
-                onClick={() => handleCopyJpg(enlargedJpg)}
-                className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs py-1.5 px-3 rounded-lg flex items-center space-x-1.5 shadow transition-all active:scale-95"
-                title="Copy JPG Image to Clipboard"
-              >
-                {copied ? (
-                  <>
-                    <Check size={14} className="text-emerald-300" />
-                    <span>Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy size={14} />
-                    <span>Copy Image</span>
-                  </>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDownloadJpg(enlargedJpg)}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-1.5 px-3 rounded-lg flex items-center space-x-1.5 shadow transition-all active:scale-95"
-                title="Download JPG File"
-              >
-                <Download size={14} />
-                <span>Download JPG</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setEnlargedJpg(null)}
-                className="bg-slate-800 hover:bg-rose-600/80 text-white p-1.5 rounded-lg transition-colors ml-1"
-                title="Close"
-              >
-                <X size={18} />
-              </button>
-            </div>
-          </div>
-
-          {/* Centered Scrollable Document Image */}
-          <div
-            className="relative max-w-4xl max-h-[85vh] overflow-auto rounded-xl shadow-2xl border border-slate-700 bg-white flex items-center justify-center p-1"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <img
-              src={enlargedJpg}
-              alt="Enlarged Document (JPG)"
-              className="max-h-[82vh] w-auto object-contain select-auto cursor-default"
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

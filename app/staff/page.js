@@ -32,10 +32,7 @@ import {
   AlertTriangle,
   Rocket,
   CheckCircle,
-  RefreshCw,
-  Copy,
-  Download,
-  Image as ImageIcon
+  RefreshCw
 } from 'lucide-react';
 
 function AttachmentTile({ src, label, onOpen, contain }) {
@@ -70,51 +67,6 @@ export default function StaffDashboardPage() {
   const [selectedApplicant, setSelectedApplicant] = useState(null);
   const [showDocGenerator, setShowDocGenerator] = useState(false);
   const [enlargedImage, setEnlargedImage] = useState(null);
-  const [generatedDocs, setGeneratedDocs] = useState({});
-  const [copiedDocId, setCopiedDocId] = useState(null);
-
-  // Copy Image directly to System Clipboard
-  const handleCopyDocImage = async (imgUrl, docId) => {
-    if (!imgUrl || typeof window === 'undefined') return;
-    try {
-      const img = new Image();
-      img.src = imgUrl;
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-      });
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth || img.width;
-      canvas.height = img.naturalHeight || img.height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-
-      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-      if (blob && navigator.clipboard && navigator.clipboard.write) {
-        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-        setCopiedDocId(docId);
-        setTimeout(() => setCopiedDocId(null), 2500);
-        return;
-      }
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(imgUrl);
-        setCopiedDocId(docId);
-        setTimeout(() => setCopiedDocId(null), 2500);
-      }
-    } catch (err) {
-      console.error('Failed to copy document image:', err);
-    }
-  };
-
-  const handleDownloadDocImage = (imgUrl, docName = 'document') => {
-    if (!imgUrl || typeof window === 'undefined') return;
-    const link = document.createElement('a');
-    link.href = imgUrl;
-    link.download = `${docName}_${selectedApplicant?.user?.fullName || selectedApplicant?.applicantName || 'applicant'}.jpg`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   // In-Mail Reason and Fee state matching Video 3 (0:48 to 1:13)
   const [mailReason, setMailReason] = useState('সঞ্চয়');
@@ -231,15 +183,6 @@ export default function StaffDashboardPage() {
     setEditInterestRate(rawRate <= 1 ? (rawRate * 100).toFixed(1) : rawRate.toString());
     setNoticeSuccess('');
     setEditSuccess('');
-
-    // Load generated JPG documents for this applicant from localStorage
-    const applicantKey = applicant.id || applicant.user?.id || 'default';
-    try {
-      const stored = JSON.parse(localStorage.getItem(`loan_generated_docs_${applicantKey}`) || '{}');
-      setGeneratedDocs(stored);
-    } catch {
-      setGeneratedDocs({});
-    }
 
     // Pre-select active notice or logically next upgrade reason
     const existingNotices = applicant.notices || [];
@@ -1289,150 +1232,24 @@ export default function StaffDashboardPage() {
                 </div>
               </div>
 
-              {/* SECTION 7: VIEW ALL DOCUMENTS & OFFICIAL SLIPS (JPG FORMAT) */}
-              <div className="bg-[#0b1633] border border-blue-500/40 rounded-xl p-4 space-y-3.5 shadow-xl">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-blue-900/50 pb-3">
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <FileCheck size={20} className="text-cyan-400" />
-                      <h4 className="font-bold text-sm text-white">
-                        View All Documents & Official Slips (JPG Format)
-                      </h4>
-                      <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-mono px-2 py-0.5 rounded border border-emerald-500/30 font-bold">
-                        JPG Image Mode
-                      </span>
-                    </div>
-                    <p className="text-xs text-blue-200 mt-1">
-                      ব্যাংক কর্তৃপক্ষ এখান থেকে সরাসরি সব অফিসিয়াল ডকুমেন্টের JPG ফরম্যাট দেখতে, ক্লিক করে বড় করতে ও ইমেজ কপি করতে পারবেন।
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setShowDocGenerator(true)}
-                    className="w-full sm:w-auto px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold text-xs shadow-lg shadow-blue-600/30 flex items-center justify-center space-x-2 transition-all flex-shrink-0"
-                  >
-                    <FileCheck size={16} />
-                    <span>Open Document Studio & Generator</span>
-                  </button>
+              {/* SECTION 7: VIEW ALL DOCUMENTS BUTTON */}
+              <div className="bg-gradient-to-r from-blue-950 to-indigo-950 border border-blue-500/40 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
+                <div>
+                  <h4 className="font-bold text-sm text-white flex items-center space-x-2">
+                    <FileCheck size={18} className="text-cyan-400" />
+                    <span>View All Documents & Generate Official Slips</span>
+                  </h4>
+                  <p className="text-xs text-blue-200 mt-0.5">
+                    Generate the lender's own documents: Loan Approval Letter, Repayment Schedule and Disbursement Advice.
+                  </p>
                 </div>
-
-                {/* Grid of Official Documents in JPG format */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                  {[
-                    { id: 'approval', name: 'Approval Letter', bn: 'ঋণ মঞ্জুরি পত্র', badge: 'অফিসিয়াল লেটার' },
-                    { id: 'receipt', name: 'Money Receipt', bn: 'টাকা জমার রশিদ', badge: 'রশিদ' },
-                    { id: 'check', name: 'Bank Check', bn: 'ব্যাংক চেক', badge: 'চেক' },
-                    { id: 'agreement', name: 'Agreement Paper', bn: 'চুক্তিপত্র (স্ট্যাম্প)', badge: 'চুক্তিপত্র' },
-                    { id: 'insurance', name: 'Insurance Certificate', bn: 'জীবন বীমা সনদপত্র', badge: 'বীমা' },
-                    { id: 'transaction', name: 'Transaction Receipt', bn: 'লেনদেন রশিদ', badge: 'লেনদেন' },
-                    { id: 'correction', name: 'Correction Fine', bn: 'তথ্য সংশোধন নোটিশ', badge: 'সংশোধন' },
-                    { id: 'police', name: 'Police Clearance', bn: 'পুলিশ ক্লিয়ারেন্স সনদপত্র', badge: 'পুলিশ' },
-                    { id: 'challan', name: 'Challan Form', bn: 'সরকারি চালান ফরম', badge: 'চালান' }
-                  ].map((doc) => {
-                    const docData = generatedDocs[doc.id];
-                    const hasJpg = !!docData?.jpgUrl;
-                    const isCopied = copiedDocId === doc.id;
-
-                    return (
-                      <div
-                        key={doc.id}
-                        className="bg-[#070e24] border border-blue-900/60 rounded-xl p-2.5 flex flex-col justify-between hover:border-cyan-500/60 transition-all group shadow-md"
-                      >
-                        {/* Card Header */}
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[11px] font-bold text-white truncate">{doc.name}</span>
-                          <span className="text-[9px] text-cyan-300 bg-cyan-950/80 px-1.5 py-0.5 rounded border border-cyan-800/40">
-                            {doc.badge}
-                          </span>
-                        </div>
-                        <span className="text-[10px] text-slate-400 mb-2 truncate block">{doc.bn}</span>
-
-                        {/* Thumbnail View (JPG Image) */}
-                        <div
-                          onClick={() => {
-                            if (hasJpg) {
-                              setEnlargedImage(docData.jpgUrl);
-                            } else {
-                              setShowDocGenerator(true);
-                            }
-                          }}
-                          className="relative w-full h-36 bg-slate-950 rounded-lg overflow-hidden border border-blue-950 flex items-center justify-center cursor-pointer group/thumb mb-2"
-                          title={hasJpg ? "ক্লিক করে বড় করে দেখুন (Click to watch & enlarge)" : "Generate JPG"}
-                        >
-                          {hasJpg ? (
-                            <>
-                              <img
-                                src={docData.jpgUrl}
-                                alt={doc.name}
-                                className="w-full h-full object-contain bg-white transition-transform duration-200 group-hover/thumb:scale-105"
-                              />
-                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity text-white text-[11px] font-bold gap-1">
-                                <Eye size={16} className="text-cyan-400" />
-                                <span>ক্লিক করে দেখুন</span>
-                              </div>
-                            </>
-                          ) : (
-                            <div className="flex flex-col items-center justify-center space-y-1 p-2 text-center text-slate-500">
-                              <ImageIcon size={22} className="text-slate-600" />
-                              <span className="text-[10px] text-blue-300 font-medium">ক্লিক করে তৈরি করুন</span>
-                              <span className="text-[9px] text-slate-500">(Generate JPG)</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Actions: Copy Image & Download JPG & Open Studio */}
-                        <div className="flex items-center gap-1.5 pt-1 border-t border-blue-900/40">
-                          {hasJpg ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => handleCopyDocImage(docData.jpgUrl, doc.id)}
-                                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold text-[10px] py-1.5 px-2 rounded-lg flex items-center justify-center space-x-1 shadow transition-all active:scale-95"
-                                title="Copy JPG Image to Clipboard"
-                              >
-                                {isCopied ? (
-                                  <>
-                                    <CheckCircle size={12} className="text-emerald-300" />
-                                    <span className="text-emerald-200">Copied!</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Copy size={12} />
-                                    <span>Copy Image</span>
-                                  </>
-                                )}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDownloadDocImage(docData.jpgUrl, doc.name)}
-                                className="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] py-1.5 px-2 rounded-lg flex items-center justify-center transition-all shadow"
-                                title="Download JPG"
-                              >
-                                <Download size={12} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setShowDocGenerator(true)}
-                                className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] py-1.5 px-2 rounded-lg flex items-center justify-center transition-all"
-                                title="Edit / Regenerate"
-                              >
-                                <Edit size={12} />
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => setShowDocGenerator(true)}
-                              className="w-full bg-blue-900/60 hover:bg-blue-800 text-blue-200 hover:text-white text-[10px] font-bold py-1.5 px-2 rounded-lg flex items-center justify-center space-x-1 transition-all"
-                            >
-                              <FileCheck size={12} />
-                              <span>জেনারেট করুন</span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                <button
+                  onClick={() => setShowDocGenerator(true)}
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs shadow-lg shadow-blue-600/30 flex items-center justify-center space-x-2 transition-all flex-shrink-0"
+                >
+                  <FileCheck size={16} />
+                  <span>View All Documents</span>
+                </button>
               </div>
 
               {/* SECTION 8: COMPOSE IN-MAIL / NOTICE (Matches Video 3: 0:48 to 1:13) */}
@@ -1708,12 +1525,6 @@ export default function StaffDashboardPage() {
         <DocumentGenerator
           applicantData={selectedApplicant}
           onClose={() => setShowDocGenerator(false)}
-          onSaveDoc={(saved) => {
-            setGeneratedDocs((prev) => ({
-              ...prev,
-              [saved.id]: saved
-            }));
-          }}
         />
       )}
 
@@ -1721,71 +1532,16 @@ export default function StaffDashboardPage() {
       {enlargedImage && (
         <div
           onClick={() => setEnlargedImage(null)}
-          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-3 sm:p-6"
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 cursor-pointer"
         >
-          {/* Top Control Bar */}
-          <div
-            className="w-full max-w-4xl flex items-center justify-between bg-slate-900/95 border border-blue-500/40 px-4 py-2.5 rounded-xl mb-3 shadow-2xl backdrop-blur text-white cursor-default"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center space-x-2">
-              <ImageIcon size={18} className="text-cyan-400" />
-              <span className="font-bold text-xs sm:text-sm tracking-wide">
-                Document Preview (JPG Image)
-              </span>
-              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-mono px-2 py-0.5 rounded border border-emerald-500/30">
-                Ready to Copy
-              </span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <button
-                type="button"
-                onClick={() => handleCopyDocImage(enlargedImage, 'enlarged')}
-                className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs py-1.5 px-3 rounded-lg flex items-center space-x-1.5 shadow transition-all active:scale-95"
-                title="Copy Image directly to Clipboard"
-              >
-                {copiedDocId === 'enlarged' ? (
-                  <>
-                    <CheckCircle size={14} className="text-emerald-300" />
-                    <span className="text-emerald-200">Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy size={14} />
-                    <span>Copy Image</span>
-                  </>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDownloadDocImage(enlargedImage, 'document')}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-1.5 px-3 rounded-lg flex items-center space-x-1.5 shadow transition-all active:scale-95"
-                title="Download JPG"
-              >
-                <Download size={14} />
-                <span>Download JPG</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setEnlargedImage(null)}
-                className="bg-slate-800 hover:bg-rose-600/80 text-white p-1.5 rounded-lg transition-colors ml-1"
-                title="Close"
-              >
-                <X size={18} />
-              </button>
-            </div>
-          </div>
-
-          {/* Centered Scrollable Document Image */}
-          <div
-            className="relative max-w-4xl max-h-[85vh] overflow-auto rounded-xl shadow-2xl border border-slate-700 bg-white flex items-center justify-center p-1 cursor-default"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <img
-              src={enlargedImage}
-              alt="Enlarged Document"
-              className="max-h-[82vh] w-auto object-contain select-auto cursor-default"
-            />
+          <div className="relative max-w-2xl max-h-[85vh] bg-white rounded-xl overflow-hidden shadow-2xl p-2">
+            <button
+              onClick={() => setEnlargedImage(null)}
+              className="absolute top-3 right-3 w-8 h-8 rounded-full bg-slate-900/80 text-white flex items-center justify-center hover:bg-black"
+            >
+              <X size={18} />
+            </button>
+            <img src={enlargedImage} alt="Enlarged Document" className="max-w-full max-h-[80vh] object-contain" />
           </div>
         </div>
       )}

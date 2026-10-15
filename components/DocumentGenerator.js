@@ -129,9 +129,10 @@ export default function DocumentGenerator({ applicantData, onClose }) {
   const rawRate = applicantData?.interestRate !== undefined ? Number(applicantData.interestRate) : 0.024;
   const initialRatePercent = rawRate <= 1 ? (rawRate * 100).toFixed(1) : rawRate.toString();
   const interestRate = Number(initialRatePercent) / 100;
+  const initialFees = Number(applicantData?.processingFees !== undefined ? applicantData.processingFees : (applicantData?.otherFees !== undefined ? applicantData.otherFees : 1500));
   const computedTotal = applicantData?.totalRepayment
     ? Number(applicantData.totalRepayment)
-    : Math.round(amount + amount * (tenure / 12) * interestRate);
+    : Math.round(amount + (amount * (tenure / 12) * interestRate) + initialFees);
   const computedEmi = applicantData?.monthlyEmi
     ? Number(applicantData.monthlyEmi)
     : Number((computedTotal / tenure).toFixed(2));
@@ -151,7 +152,7 @@ export default function DocumentGenerator({ applicantData, onClose }) {
     interestRate: initialRatePercent, // Changable interest rate (%)
     monthlyEmi: computedEmi,
     totalRepayment: computedTotal,
-    processingFees: 1500, // Processing Fee specifically requested in Video 3!
+    processingFees: initialFees, // Processing Fee specifically requested in Video 3!
     photoUrl: userPhoto,
     signatureUrl: userSignature,
     officerName: 'Md Hannan Mia',
@@ -170,13 +171,41 @@ export default function DocumentGenerator({ applicantData, onClose }) {
 
   const [generated, setGenerated] = useState(true);
 
+  // Sync if applicantData changes
+  useEffect(() => {
+    if (!applicantData) return;
+    const amt = Number(applicantData.amount || 50000);
+    const ten = Number(applicantData.tenureMonths || 12);
+    const rawR = applicantData.interestRate !== undefined ? Number(applicantData.interestRate) : 0.024;
+    const rPercent = rawR <= 1 ? (rawR * 100).toFixed(1) : rawR.toString();
+    const f = Number(applicantData.processingFees !== undefined ? applicantData.processingFees : (applicantData.otherFees !== undefined ? applicantData.otherFees : 1500));
+    const rDec = Number(rPercent) / 100;
+    const tot = applicantData.totalRepayment
+      ? Number(applicantData.totalRepayment)
+      : Math.round(amt + (amt * (ten / 12) * rDec) + f);
+    const emi = applicantData.monthlyEmi
+      ? Number(applicantData.monthlyEmi)
+      : Number((tot / ten).toFixed(2));
+
+    setDocFields(prev => ({
+      ...prev,
+      loanAmount: amt,
+      tenureMonths: ten,
+      interestRate: rPercent,
+      processingFees: f,
+      totalRepayment: tot,
+      monthlyEmi: emi
+    }));
+  }, [applicantData]);
+
   const handleInterestRateChange = (newRate) => {
     const rateNum = parseFloat(newRate);
     const loan = Number(docFields.loanAmount) || 0;
     const tenureMonths = Number(docFields.tenureMonths) || 12;
+    const fees = Number(docFields.processingFees) || 0;
     if (!isNaN(rateNum) && loan > 0 && tenureMonths > 0) {
       const annualDecimal = rateNum / 100;
-      const total = Math.round(loan + loan * (tenureMonths / 12) * annualDecimal);
+      const total = Math.round(loan + (loan * (tenureMonths / 12) * annualDecimal) + fees);
       const emi = Number((total / tenureMonths).toFixed(2));
       setDocFields(prev => ({
         ...prev,
@@ -193,12 +222,29 @@ export default function DocumentGenerator({ applicantData, onClose }) {
     const loan = Number(field === 'loanAmount' ? val : docFields.loanAmount) || 0;
     const tenureMonths = Number(field === 'tenureMonths' ? val : docFields.tenureMonths) || 12;
     const rateNum = parseFloat(docFields.interestRate) || 2.4;
+    const fees = Number(docFields.processingFees) || 0;
     const annualDecimal = rateNum / 100;
-    const total = Math.round(loan + loan * (tenureMonths / 12) * annualDecimal);
+    const total = Math.round(loan + (loan * (tenureMonths / 12) * annualDecimal) + fees);
     const emi = tenureMonths > 0 ? Number((total / tenureMonths).toFixed(2)) : 0;
     setDocFields(prev => ({
       ...prev,
       [field]: val,
+      totalRepayment: total,
+      monthlyEmi: emi
+    }));
+  };
+
+  const handleProcessingFeesChange = (newFees) => {
+    const fees = Number(newFees) || 0;
+    const loan = Number(docFields.loanAmount) || 0;
+    const tenureMonths = Number(docFields.tenureMonths) || 12;
+    const rateNum = parseFloat(docFields.interestRate) || 2.4;
+    const annualDecimal = rateNum / 100;
+    const total = Math.round(loan + (loan * (tenureMonths / 12) * annualDecimal) + fees);
+    const emi = tenureMonths > 0 ? Number((total / tenureMonths).toFixed(2)) : 0;
+    setDocFields(prev => ({
+      ...prev,
+      processingFees: newFees,
       totalRepayment: total,
       monthlyEmi: emi
     }));
@@ -508,7 +554,7 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                     <input
                       type="number"
                       value={docFields.processingFees}
-                      onChange={(e) => handleFieldChange('processingFees', e.target.value)}
+                      onChange={(e) => handleProcessingFeesChange(e.target.value)}
                       className="w-full bg-[#081024] border border-amber-500/60 rounded-lg px-3 py-2 text-amber-300 font-bold font-mono focus:outline-none focus:border-amber-400"
                     />
                   </div>

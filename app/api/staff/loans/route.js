@@ -205,6 +205,11 @@ export async function PATCH(request) {
       status,
       userBalance,
       interestRate,
+      amount,
+      tenureMonths,
+      totalRepayment,
+      monthlyEmi,
+      otherFees,
       upgradeReason,
       upgradeAmount,
       upgradeDescription,
@@ -225,32 +230,50 @@ export async function PATCH(request) {
       return NextResponse.json({ success: false, message: 'অবৈধ ব্যালেন্স' }, { status: 400 });
     }
 
+    const { data: currentLoan } = await supabase
+      .from('loans')
+      .select('*')
+      .eq('id', loanId)
+      .maybeSingle();
+
+    if (!currentLoan) {
+      return NextResponse.json({ success: false, message: 'ঋণ পাওয়া যায়নি' }, { status: 404 });
+    }
+
     const changes = { updated_at: new Date().toISOString() };
     if (status !== undefined) changes.status = status;
     if (userBalance !== undefined) changes.user_balance = Number(userBalance);
 
+    // Resolve Amount & Tenure
+    const loanAmt = (amount !== undefined && Number(amount) > 0) ? Number(amount) : (Number(currentLoan.amount) || 50000);
+    const tenure = (tenureMonths !== undefined && Number(tenureMonths) > 0) ? Number(tenureMonths) : (Number(currentLoan.tenure_months) || 12);
+
+    changes.amount = loanAmt;
+    changes.tenure_months = tenure;
+
+    // Resolve Interest Rate
+    let rateDecimal = Number(currentLoan.interest_rate) || 0.024;
     if (interestRate !== undefined && interestRate !== null && interestRate !== '') {
       const rateNum = Number(interestRate);
       if (Number.isFinite(rateNum) && rateNum >= 0) {
-        // e.g. 2.4% -> 0.024
-        const rateDecimal = rateNum > 1 ? rateNum / 100 : rateNum;
-        changes.interest_rate = rateDecimal;
-
-        const { data: currentLoan } = await supabase
-          .from('loans')
-          .select('amount, tenure_months')
-          .eq('id', loanId)
-          .maybeSingle();
-
-        if (currentLoan) {
-          const loanAmt = Number(currentLoan.amount) || 0;
-          const tenure = Number(currentLoan.tenure_months) || 12;
-          const interestAmt = loanAmt * (tenure / 12) * rateDecimal;
-          const totalRepay = Math.round(loanAmt + interestAmt);
-          changes.total_repayment = totalRepay;
-          changes.monthly_emi = tenure > 0 ? Number((totalRepay / tenure).toFixed(2)) : 0;
-        }
+        rateDecimal = rateNum > 1 ? rateNum / 100 : rateNum;
       }
+    }
+    changes.interest_rate = rateDecimal;
+
+    // Resolve Total Repayment and Monthly EMI (dynamic calculation)
+    if (totalRepayment !== undefined && Number(totalRepayment) > 0) {
+      changes.total_repayment = Math.round(Number(totalRepayment));
+    } else {
+      const feeAmt = Number(otherFees || 0);
+      const interestAmt = loanAmt * (tenure / 12) * rateDecimal;
+      changes.total_repayment = Math.round(loanAmt + interestAmt + feeAmt);
+    }
+
+    if (monthlyEmi !== undefined && Number(monthlyEmi) > 0) {
+      changes.monthly_emi = Number(Number(monthlyEmi).toFixed(2));
+    } else {
+      changes.monthly_emi = tenure > 0 ? Number((changes.total_repayment / tenure).toFixed(2)) : 0;
     }
 
     const { data, error } = await supabase

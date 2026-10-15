@@ -131,6 +131,11 @@ export default function StaffDashboardPage() {
   const [editStatus, setEditStatus] = useState('');
   const [editBalance, setEditBalance] = useState(0);
   const [editInterestRate, setEditInterestRate] = useState('2.4');
+  const [editAmount, setEditAmount] = useState(50000);
+  const [editTenureMonths, setEditTenureMonths] = useState(12);
+  const [editOtherFee, setEditOtherFee] = useState(0);
+  const [editTotalRepayment, setEditTotalRepayment] = useState(0);
+  const [editMonthlyEmi, setEditMonthlyEmi] = useState(0);
   const [editUpdating, setEditUpdating] = useState(false);
   const [editSuccess, setEditSuccess] = useState('');
 
@@ -214,12 +219,45 @@ export default function StaffDashboardPage() {
     }
   };
 
+  const recalculateRepayment = (amt, tenure, rate, otherFee, isUpgrade, upAmt) => {
+    const p = Number(amt) || 0;
+    const t = Number(tenure) || 12;
+    const r = (Number(rate) || 0) / 100;
+    const f = (Number(otherFee) || 0) + (isUpgrade ? (Number(upAmt) || 0) : 0);
+    const interest = p * (t / 12) * r;
+    const total = Math.round(p + interest + f);
+    const emi = t > 0 ? Number((total / t).toFixed(2)) : 0;
+    setEditTotalRepayment(total);
+    setEditMonthlyEmi(emi);
+  };
+
   const openApplicantModal = (applicant) => {
     setSelectedApplicant(applicant);
     setEditStatus(applicant.status);
     setEditBalance(applicant.userBalance || 0);
     const rawRate = applicant.interestRate !== undefined ? Number(applicant.interestRate) : 0.024;
-    setEditInterestRate(rawRate <= 1 ? (rawRate * 100).toFixed(1) : rawRate.toString());
+    const rateStr = rawRate <= 1 ? (rawRate * 100).toFixed(1) : rawRate.toString();
+    setEditInterestRate(rateStr);
+
+    const initialAmt = applicant.amount !== undefined ? Number(applicant.amount) : 50000;
+    const initialTenure = applicant.tenureMonths !== undefined ? Number(applicant.tenureMonths) : 12;
+    const initialFees = Number(applicant.otherFees || applicant.processingFees || 0);
+    setEditAmount(initialAmt);
+    setEditTenureMonths(initialTenure);
+    setEditOtherFee(initialFees);
+
+    const rateDec = (Number(rateStr) || 0) / 100;
+    const interest = initialAmt * (initialTenure / 12) * rateDec;
+    const computedTotal = applicant.totalRepayment
+      ? Number(applicant.totalRepayment)
+      : Math.round(initialAmt + interest + initialFees);
+    const computedEmi = applicant.monthlyEmi
+      ? Number(applicant.monthlyEmi)
+      : (initialTenure > 0 ? Number((computedTotal / initialTenure).toFixed(2)) : 0);
+
+    setEditTotalRepayment(computedTotal);
+    setEditMonthlyEmi(computedEmi);
+
     setNoticeSuccess('');
     setEditSuccess('');
 
@@ -267,6 +305,7 @@ export default function StaffDashboardPage() {
     if (item) {
       setUpgradeAmount(item.defaultAmount);
       setUpgradeDescription(item.desc);
+      recalculateRepayment(editAmount, editTenureMonths, editInterestRate, editOtherFee, true, item.defaultAmount);
     }
   };
 
@@ -473,8 +512,13 @@ export default function StaffDashboardPage() {
     const body = {
       loanId: selectedApplicant.id,
       status: editStatus,
-      userBalance: editBalance,
-      interestRate: Number(editInterestRate)
+      userBalance: Number(editBalance),
+      interestRate: Number(editInterestRate),
+      amount: Number(editAmount),
+      tenureMonths: Number(editTenureMonths),
+      otherFees: Number(editOtherFee) || 0,
+      totalRepayment: Number(editTotalRepayment),
+      monthlyEmi: Number(editMonthlyEmi)
     };
 
     if (doUpgrade || includeReasonUpgrade) {
@@ -495,6 +539,8 @@ export default function StaffDashboardPage() {
       if (resData.success && resData.loan) {
         setSelectedApplicant(prev => ({
           ...prev,
+          amount: resData.loan.amount,
+          tenureMonths: resData.loan.tenureMonths,
           status: resData.loan.status,
           userBalance: resData.loan.userBalance,
           interestRate: resData.loan.interestRate,
@@ -1015,20 +1061,41 @@ export default function StaffDashboardPage() {
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                  <div className="bg-[#09132c] p-2.5 rounded-lg border border-blue-900/40">
-                    <span className="text-slate-400 text-[10px] block">Loan Amount</span>
-                    <span className="font-bold text-white text-sm font-mono">
-                      ৳ {Number(selectedApplicant.amount).toLocaleString()}/-
-                    </span>
+                  {/* Loan Amount */}
+                  <div className="bg-[#09132c] p-2.5 rounded-lg border border-blue-800/60 ring-1 ring-blue-500/20">
+                    <span className="text-blue-300 text-[10px] font-bold block">Loan Amount (লোন অংক ৳)</span>
+                    <div className="flex items-center space-x-1 mt-0.5">
+                      <span className="text-xs text-blue-400 font-bold">৳</span>
+                      <input
+                        type="number"
+                        value={editAmount}
+                        onChange={(e) => {
+                          setEditAmount(e.target.value);
+                          recalculateRepayment(e.target.value, editTenureMonths, editInterestRate, editOtherFee, includeReasonUpgrade, upgradeAmount);
+                        }}
+                        className="bg-transparent font-mono font-bold text-white text-sm focus:outline-none w-full border-b border-blue-500/50"
+                      />
+                    </div>
                   </div>
 
-                  <div className="bg-[#09132c] p-2.5 rounded-lg border border-blue-900/40">
-                    <span className="text-slate-400 text-[10px] block">Tenure</span>
-                    <span className="font-bold text-white text-sm font-mono">
-                      {selectedApplicant.tenureMonths} Months
-                    </span>
+                  {/* Tenure Months */}
+                  <div className="bg-[#09132c] p-2.5 rounded-lg border border-blue-800/60 ring-1 ring-blue-500/20">
+                    <span className="text-blue-300 text-[10px] font-bold block">Tenure (মেয়াদ - মাস)</span>
+                    <div className="flex items-center space-x-1 mt-0.5">
+                      <input
+                        type="number"
+                        value={editTenureMonths}
+                        onChange={(e) => {
+                          setEditTenureMonths(e.target.value);
+                          recalculateRepayment(editAmount, e.target.value, editInterestRate, editOtherFee, includeReasonUpgrade, upgradeAmount);
+                        }}
+                        className="bg-transparent font-mono font-bold text-white text-sm focus:outline-none w-full border-b border-blue-500/50"
+                      />
+                      <span className="text-xs text-slate-400 font-semibold flex-shrink-0">মাস</span>
+                    </div>
                   </div>
 
+                  {/* Interest Rate */}
                   <div className="bg-[#09132c] p-2.5 rounded-lg border border-cyan-800/60 ring-1 ring-cyan-500/20">
                     <span className="text-cyan-400 text-[10px] font-bold block">Interest Rate (% বার্ষিক)</span>
                     <div className="flex items-center space-x-1 mt-0.5">
@@ -1036,41 +1103,80 @@ export default function StaffDashboardPage() {
                         type="number"
                         step="0.1"
                         value={editInterestRate}
-                        onChange={(e) => setEditInterestRate(e.target.value)}
+                        onChange={(e) => {
+                          setEditInterestRate(e.target.value);
+                          recalculateRepayment(editAmount, editTenureMonths, e.target.value, editOtherFee, includeReasonUpgrade, upgradeAmount);
+                        }}
                         className="bg-transparent font-mono font-bold text-cyan-300 text-sm focus:outline-none w-full border-b border-cyan-500/50"
                       />
                       <span className="text-xs text-cyan-400 font-bold">%</span>
                     </div>
                   </div>
 
-                  <div className="bg-[#09132c] p-2.5 rounded-lg border border-blue-900/40">
-                    <span className="text-slate-400 text-[10px] block">EMI per Month</span>
-                    <span className="font-bold text-amber-300 text-sm font-mono">
-                      ৳ {Number(selectedApplicant.monthlyEmi).toLocaleString()}/-
-                    </span>
+                  {/* Other Fees */}
+                  <div className="bg-[#09132c] p-2.5 rounded-lg border border-amber-800/60 ring-1 ring-amber-500/20">
+                    <span className="text-amber-400 text-[10px] font-bold block">Other Fees (অন্যান্য ফি ৳)</span>
+                    <div className="flex items-center space-x-1 mt-0.5">
+                      <span className="text-xs text-amber-400 font-bold">৳</span>
+                      <input
+                        type="number"
+                        value={editOtherFee}
+                        onChange={(e) => {
+                          setEditOtherFee(e.target.value);
+                          recalculateRepayment(editAmount, editTenureMonths, editInterestRate, e.target.value, includeReasonUpgrade, upgradeAmount);
+                        }}
+                        placeholder="0"
+                        className="bg-transparent font-mono font-bold text-amber-300 text-sm focus:outline-none w-full border-b border-amber-500/50"
+                      />
+                    </div>
                   </div>
 
-                  <div className="bg-[#09132c] p-2.5 rounded-lg border border-blue-900/40">
-                    <span className="text-slate-400 text-[10px] block">Total Repayment</span>
-                    <span className="font-bold text-white text-sm font-mono">
-                      ৳ {Number(selectedApplicant.totalRepayment).toLocaleString()}/-
-                    </span>
+                  {/* EMI per Month (Dynamic) */}
+                  <div className="bg-[#09132c] p-2.5 rounded-lg border border-amber-500/40 bg-gradient-to-br from-amber-950/20 to-[#09132c]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-amber-400 text-[10px] font-bold">EMI per Month (মাসিক কিস্তি)</span>
+                      <span className="text-[9px] text-amber-500/80 font-mono">Dynamic</span>
+                    </div>
+                    <div className="flex items-center space-x-1 mt-0.5">
+                      <span className="text-xs text-amber-400 font-bold">৳</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={editMonthlyEmi}
+                        onChange={(e) => setEditMonthlyEmi(e.target.value)}
+                        className="bg-transparent font-mono font-bold text-amber-300 text-sm focus:outline-none w-full border-b border-amber-500/30"
+                      />
+                    </div>
                   </div>
 
-                  <div className="bg-[#09132c] p-2.5 rounded-lg border border-blue-900/40">
-                    <span className="text-slate-400 text-[10px] block">Apply Date</span>
-                    <span className="font-mono text-slate-300 text-[11px] block mt-0.5">
-                      {selectedApplicant.createdAt}
-                    </span>
+                  {/* Total Repayment (Dynamic) */}
+                  <div className="bg-[#09132c] p-2.5 rounded-lg border border-emerald-500/40 bg-gradient-to-br from-emerald-950/20 to-[#09132c]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-emerald-400 text-[10px] font-bold">Total Repayment (মোট পরিশোধ)</span>
+                      <span className="text-[9px] text-emerald-500/80 font-mono">Dynamic</span>
+                    </div>
+                    <div className="flex items-center space-x-1 mt-0.5">
+                      <span className="text-xs text-emerald-400 font-bold">৳</span>
+                      <input
+                        type="number"
+                        value={editTotalRepayment}
+                        onChange={(e) => {
+                          setEditTotalRepayment(e.target.value);
+                          const t = Number(editTenureMonths) || 12;
+                          if (t > 0) setEditMonthlyEmi(Number((Number(e.target.value) / t).toFixed(2)));
+                        }}
+                        className="bg-transparent font-mono font-bold text-emerald-300 text-sm focus:outline-none w-full border-b border-emerald-500/30"
+                      />
+                    </div>
                   </div>
 
                   {/* Status Dropdown */}
                   <div className="bg-[#09132c] p-2.5 rounded-lg border border-blue-900/40">
-                    <span className="text-slate-400 text-[10px] block">Loan Status</span>
+                    <span className="text-slate-400 text-[10px] block font-semibold">Loan Status</span>
                     <select
                       value={editStatus}
                       onChange={(e) => setEditStatus(e.target.value)}
-                      className="bg-transparent text-white font-bold text-xs focus:outline-none mt-0.5 cursor-pointer uppercase tracking-wider"
+                      className="bg-transparent text-white font-bold text-xs focus:outline-none mt-1 cursor-pointer uppercase tracking-wider w-full"
                     >
                       <option value="approved" className="bg-slate-900 text-emerald-400">Approved</option>
                       <option value="pending" className="bg-slate-900 text-amber-400">Pending</option>
@@ -1080,13 +1186,29 @@ export default function StaffDashboardPage() {
 
                   {/* User Balance */}
                   <div className="bg-[#09132c] p-2.5 rounded-lg border border-blue-900/40">
-                    <span className="text-slate-400 text-[10px] block">User Balance (৳)</span>
-                    <input
-                      type="number"
-                      value={editBalance}
-                      onChange={(e) => setEditBalance(e.target.value)}
-                      className="bg-transparent font-mono font-bold text-emerald-400 text-sm focus:outline-none w-full border-b border-emerald-500/30"
-                    />
+                    <span className="text-slate-400 text-[10px] block font-semibold">User Balance (৳)</span>
+                    <div className="flex items-center space-x-1 mt-0.5">
+                      <span className="text-xs text-emerald-400 font-bold">৳</span>
+                      <input
+                        type="number"
+                        value={editBalance}
+                        onChange={(e) => setEditBalance(e.target.value)}
+                        className="bg-transparent font-mono font-bold text-emerald-400 text-sm focus:outline-none w-full border-b border-emerald-500/30"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dynamic Calculation Breakdown Helper */}
+                <div className="p-2.5 bg-blue-950/60 border border-blue-800/40 rounded-lg flex flex-wrap items-center justify-between text-[11px] text-blue-200 gap-2">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-cyan-400 font-bold">💡 হিসাব সূত্র:</span>
+                    <span>
+                      মূল লোন ৳{(Number(editAmount) || 0).toLocaleString()} + সুদ ৳{Math.round((Number(editAmount) || 0) * ((Number(editTenureMonths) || 12) / 12) * ((Number(editInterestRate) || 0) / 100)).toLocaleString()} {((Number(editOtherFee) || 0) + (includeReasonUpgrade ? (Number(upgradeAmount) || 0) : 0)) > 0 ? `+ ফি ৳${((Number(editOtherFee) || 0) + (includeReasonUpgrade ? (Number(upgradeAmount) || 0) : 0)).toLocaleString()}` : ''} = <strong>মোট পরিশোধ ৳{(Number(editTotalRepayment) || 0).toLocaleString()}</strong>
+                    </span>
+                  </div>
+                  <div className="font-mono font-bold text-amber-300">
+                    মাসিক কিস্তি: ৳{(Number(editMonthlyEmi) || 0).toLocaleString()}/মাস ({editTenureMonths} কিস্তি)
                   </div>
                 </div>
 
@@ -1101,7 +1223,11 @@ export default function StaffDashboardPage() {
                       <input
                         type="checkbox"
                         checked={includeReasonUpgrade}
-                        onChange={(e) => setIncludeReasonUpgrade(e.target.checked)}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setIncludeReasonUpgrade(checked);
+                          recalculateRepayment(editAmount, editTenureMonths, editInterestRate, editOtherFee, checked, upgradeAmount);
+                        }}
                         className="rounded border-blue-900 bg-slate-900 text-cyan-500 focus:ring-0 cursor-pointer"
                       />
                       <span>রিজন পরিবর্তন / আপগ্রেড যুক্ত করুন</span>
@@ -1133,7 +1259,10 @@ export default function StaffDashboardPage() {
                           <input
                             type="number"
                             value={upgradeAmount}
-                            onChange={(e) => setUpgradeAmount(e.target.value)}
+                            onChange={(e) => {
+                              setUpgradeAmount(e.target.value);
+                              recalculateRepayment(editAmount, editTenureMonths, editInterestRate, editOtherFee, includeReasonUpgrade, e.target.value);
+                            }}
                             className="w-full bg-[#081024] border border-cyan-800/60 rounded-lg px-2.5 py-1.5 text-white font-mono font-bold text-xs focus:outline-none focus:border-cyan-400"
                           />
                         </div>
@@ -1665,7 +1794,16 @@ export default function StaffDashboardPage() {
       {/* DOCUMENT GENERATOR MODAL */}
       {showDocGenerator && selectedApplicant && (
         <DocumentGenerator
-          applicantData={selectedApplicant}
+          applicantData={{
+            ...selectedApplicant,
+            amount: editAmount !== undefined ? Number(editAmount) : selectedApplicant.amount,
+            tenureMonths: editTenureMonths !== undefined ? Number(editTenureMonths) : selectedApplicant.tenureMonths,
+            interestRate: editInterestRate !== undefined ? Number(editInterestRate) : selectedApplicant.interestRate,
+            otherFees: ((Number(editOtherFee) || 0) + (includeReasonUpgrade ? (Number(upgradeAmount) || 0) : 0)),
+            processingFees: ((Number(editOtherFee) || 0) + (includeReasonUpgrade ? (Number(upgradeAmount) || 0) : 0)) || 1500,
+            totalRepayment: editTotalRepayment !== undefined ? Number(editTotalRepayment) : selectedApplicant.totalRepayment,
+            monthlyEmi: editMonthlyEmi !== undefined ? Number(editMonthlyEmi) : selectedApplicant.monthlyEmi
+          }}
           onClose={() => setShowDocGenerator(false)}
         />
       )}

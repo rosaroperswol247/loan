@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import DocumentGenerator from '@/components/DocumentGenerator';
 import {
@@ -32,24 +32,63 @@ import {
   AlertTriangle,
   Rocket,
   CheckCircle,
-  RefreshCw
+  RefreshCw,
+  Upload
 } from 'lucide-react';
 
-function AttachmentTile({ src, label, onOpen, contain }) {
+function AttachmentTile({ src, label, onOpen, onUpload, contain }) {
   const has = !!src;
+  const fileInputRef = useRef(null);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file && onUpload) {
+      onUpload(file);
+    }
+    e.target.value = '';
+  };
+
   return (
     <div
-      onClick={() => has && onOpen(src)}
-      className={`group bg-[#09132c] border border-blue-900/40 rounded-xl p-2 flex flex-col items-center transition-all ${has ? 'cursor-pointer hover:border-cyan-400' : 'opacity-70'}`}
+      className={`group bg-[#09132c] border border-blue-900/40 rounded-xl p-2 flex flex-col justify-between transition-all hover:border-cyan-400`}
     >
-      <div className={`w-full h-24 rounded-lg overflow-hidden flex items-center justify-center ${contain ? 'bg-white p-2' : 'bg-slate-900'}`}>
+      <div
+        onClick={() => has && onOpen(src)}
+        className={`w-full h-24 rounded-lg overflow-hidden flex items-center justify-center relative ${contain ? 'bg-white p-2' : 'bg-slate-900'} ${has ? 'cursor-pointer' : ''}`}
+        title={has ? "Click to view full size" : "No image uploaded"}
+      >
         {has ? (
           <img src={src} alt={label} className={`${contain ? 'max-h-full object-contain' : 'w-full h-full object-cover'} group-hover:scale-105 transition-transform`} />
         ) : (
           <span className="text-[10px] text-slate-500 text-center px-2">কোনো ফাইল আপলোড করা হয়নি</span>
         )}
       </div>
-      <span className="text-[10px] font-semibold text-slate-300 mt-1.5 text-center">{label}</span>
+      <span className="text-[10px] font-semibold text-slate-300 mt-1.5 text-center truncate w-full">{label}</span>
+
+      {/* Admin Image Edit & Replace Action */}
+      {onUpload && (
+        <div className="w-full mt-1.5 pt-1.5 border-t border-blue-900/40">
+          <input
+            type="file"
+            accept="image/*"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              fileInputRef.current?.click();
+            }}
+            className="w-full py-1 bg-blue-950 hover:bg-blue-900 active:scale-95 text-cyan-300 hover:text-cyan-100 text-[10px] font-bold rounded border border-blue-800/70 flex items-center justify-center space-x-1 transition-all shadow-sm"
+            title="ছবি পরিবর্তন বা নতুন ছবি আপলোড করুন"
+          >
+            <Upload size={11} />
+            <span>{has ? 'ছবি পরিবর্তন' : 'আপলোড করুন'}</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -357,6 +396,73 @@ export default function StaffDashboardPage() {
     } finally {
       setDeletingId(null);
     }
+  };
+
+  // Handle Admin Editing/Uploading Any Document Image
+  const handleAdminDocumentUpload = async (docKey, file, isNominee = false) => {
+    if (!file || !selectedApplicant) return;
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const dataUrl = e.target?.result;
+      if (!dataUrl) return;
+
+      // Update selectedApplicant locally immediately
+      setSelectedApplicant(prev => {
+        if (!prev) return prev;
+        if (isNominee) {
+          return {
+            ...prev,
+            nominee: {
+              ...(prev.nominee || {}),
+              [docKey]: dataUrl
+            }
+          };
+        } else {
+          return {
+            ...prev,
+            personal: {
+              ...(prev.personal || {}),
+              [docKey]: dataUrl
+            }
+          };
+        }
+      });
+
+      // Update loans state as well
+      setLoans(prevLoans => prevLoans.map(loan => {
+        if (loan.id === selectedApplicant.id) {
+          if (isNominee) {
+            return {
+              ...loan,
+              nominee: { ...(loan.nominee || {}), [docKey]: dataUrl }
+            };
+          } else {
+            return {
+              ...loan,
+              personal: { ...(loan.personal || {}), [docKey]: dataUrl }
+            };
+          }
+        }
+        return loan;
+      }));
+
+      // Call API to persist to backend
+      try {
+        await fetch('/api/staff/applicant', {
+          method: 'PATCH',
+          headers: getStaffHeaders(),
+          body: JSON.stringify({
+            userId: selectedApplicant.userId || selectedApplicant.user_id,
+            docType: isNominee ? 'nominee' : 'personal',
+            docKey: docKey,
+            dataUrl: dataUrl
+          })
+        });
+      } catch (err) {
+        console.error('Failed to persist document to server:', err);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleUpdateInformation = async (doUpgrade = false) => {
@@ -1212,10 +1318,31 @@ export default function StaffDashboardPage() {
                     গ্রাহকের ডকুমেন্টস (Applicant Documents):
                   </span>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <AttachmentTile src={selectedApplicant.personal?.nidFront} label="NID Front Side" onOpen={setEnlargedImage} />
-                    <AttachmentTile src={selectedApplicant.personal?.nidBack} label="NID Back Side" onOpen={setEnlargedImage} />
-                    <AttachmentTile src={selectedApplicant.personal?.applicantPhoto} label="গ্রাহকের ছবি" onOpen={setEnlargedImage} />
-                    <AttachmentTile src={selectedApplicant.personal?.signature} label="স্বাক্ষর" onOpen={setEnlargedImage} contain />
+                    <AttachmentTile
+                      src={selectedApplicant.personal?.nidFront}
+                      label="NID Front Side"
+                      onOpen={setEnlargedImage}
+                      onUpload={(file) => handleAdminDocumentUpload('nidFront', file, false)}
+                    />
+                    <AttachmentTile
+                      src={selectedApplicant.personal?.nidBack}
+                      label="NID Back Side"
+                      onOpen={setEnlargedImage}
+                      onUpload={(file) => handleAdminDocumentUpload('nidBack', file, false)}
+                    />
+                    <AttachmentTile
+                      src={selectedApplicant.personal?.applicantPhoto}
+                      label="গ্রাহকের ছবি"
+                      onOpen={setEnlargedImage}
+                      onUpload={(file) => handleAdminDocumentUpload('applicantPhoto', file, false)}
+                    />
+                    <AttachmentTile
+                      src={selectedApplicant.personal?.signature}
+                      label="স্বাক্ষর"
+                      onOpen={setEnlargedImage}
+                      onUpload={(file) => handleAdminDocumentUpload('signature', file, false)}
+                      contain
+                    />
                   </div>
                 </div>
 
@@ -1225,9 +1352,24 @@ export default function StaffDashboardPage() {
                     নমিনীর ডকুমেন্টস (Nominee Documents):
                   </span>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    <AttachmentTile src={selectedApplicant.nominee?.nomineePhoto} label="নমিনীর ছবি" onOpen={setEnlargedImage} />
-                    <AttachmentTile src={selectedApplicant.nominee?.nomineeNidFront} label="নমিনীর এনআইডি ফ্রন্ট" onOpen={setEnlargedImage} />
-                    <AttachmentTile src={selectedApplicant.nominee?.nomineeNidBack} label="নমিনীর এনআইডি ব্যাক" onOpen={setEnlargedImage} />
+                    <AttachmentTile
+                      src={selectedApplicant.nominee?.nomineePhoto}
+                      label="নমিনীর ছবি"
+                      onOpen={setEnlargedImage}
+                      onUpload={(file) => handleAdminDocumentUpload('nomineePhoto', file, true)}
+                    />
+                    <AttachmentTile
+                      src={selectedApplicant.nominee?.nomineeNidFront}
+                      label="নমিনীর এনআইডি ফ্রন্ট"
+                      onOpen={setEnlargedImage}
+                      onUpload={(file) => handleAdminDocumentUpload('nomineeNidFront', file, true)}
+                    />
+                    <AttachmentTile
+                      src={selectedApplicant.nominee?.nomineeNidBack}
+                      label="নমিনীর এনআইডি ব্যাক"
+                      onOpen={setEnlargedImage}
+                      onUpload={(file) => handleAdminDocumentUpload('nomineeNidBack', file, true)}
+                    />
                   </div>
                 </div>
               </div>

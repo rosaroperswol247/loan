@@ -49,6 +49,48 @@ function toWordsBDT(num) {
   return result ? `${result} Taka Only` : `${n} Taka Only`;
 }
 
+function toBengaliDigits(num) {
+  if (num === undefined || num === null || num === '') return '০';
+  const banglaDigits = { '0': '০', '1': '১', '2': '২', '3': '৩', '4': '৪', '5': '৫', '6': '৬', '7': '৭', '8': '৮', '9': '৯' };
+  return String(num).replace(/[0-9]/g, (d) => banglaDigits[d] || d);
+}
+
+function toWordsBangla(num) {
+  const n = Math.round(Number(num) || 0);
+  if (n <= 0) return 'শূন্য টাকা মাত্র';
+
+  const bMap = {
+    1:'এক', 2:'দুই', 3:'তিন', 4:'চার', 5:'পাঁচ', 6:'ছয়', 7:'সাত', 8:'আট', 9:'নয়', 10:'দশ',
+    11:'এগারো', 12:'বারো', 13:'তেরো', 14:'চৌদ্দ', 15:'পনেরো', 16:'ষোলো', 17:'সতেরো', 18:'আঠারো', 19:'উনিশ', 20:'বিশ',
+    21:'একুশ', 22:'বাইশ', 23:'তেইশ', 24:'চব্বিশ', 25:'পঁচিশ', 26:'ছাব্বিশ', 27:'সাতাশ', 28:'আঠাশ', 29:'উনত্রিশ', 30:'ত্রিশ',
+    31:'একত্রিশ', 32:'বত্রিশ', 33:'তেত্রিশ', 34:'চৌত্রিশ', 35:'পঁয়ত্রিশ', 36:'ছত্রিশ', 37:'সাঁইত্রিশ', 38:'আটত্রিশ', 39:'উনচল্লিশ', 40:'চল্লিশ',
+    41:'একচল্লিশ', 42:'বিয়াল্লিশ', 43:'তেতাল্লিশ', 44:'চুয়াল্লিশ', 45:'পঁয়তাল্লিশ', 46:'ছেচল্লিশ', 47:'সাতচল্লিশ', 48:'আটচল্লিশ', 49:'উনপঞ্চাশ', 50:'পঞ্চাশ',
+    51:'একান্ন', 52:'বায়ান্ন', 53:'তিপ্পান্ন', 54:'চুয়ান্ন', 55:'পঞ্চান্ন', 56:'ছাপ্পান্ন', 57:'সাতান্ন', 58:'আটান্ন', 59:'উনষাট', 60:'ষাট',
+    61:'একষট্টি', 62:'বাষট্টি', 63:'তেষট্টি', 64:'চৌষট্টি', 65:'পঁয়ষট্টি', 66:'ছেষট্টি', 67:'সাতষট্টি', 68:'আটষট্টি', 69:'উনসত্তর', 70:'সত্তর',
+    71:'একাত্তর', 72:'বাহাত্তর', 73:'তিয়াত্তর', 74:'চুয়াত্তর', 75:'পঁচাত্তর', 76:'ছিয়াত্তর', 77:'সাতাত্তর', 78:'আটাত্তর', 79:'উনাশি', 80:'আশি',
+    81:'একাশি', 82:'বিরাশি', 83:'তিরাশি', 84:'চুরাশি', 85:'পঁচাশি', 86:'ছিয়াশি', 87:'সাতাশি', 88:'আটাশি', 89:'ঊননব্বই', 90:'নব্বই',
+    91:'একানব্বই', 92:'বানব্বই', 93:'তিরানব্বই', 94:'চুরানব্বই', 95:'পঁচানব্বই', 96:'ছিয়ানব্বই', 97:'সাতানব্বই', 98:'আটানব্বই', 99:'নিরানব্বই'
+  };
+
+  let words = '';
+  let crore = Math.floor(n / 10000000);
+  let rem = n % 10000000;
+  let lakh = Math.floor(rem / 100000);
+  rem = rem % 100000;
+  let thousand = Math.floor(rem / 1000);
+  rem = rem % 1000;
+  let hundred = Math.floor(rem / 100);
+  rem = rem % 100;
+
+  if (crore > 0) words += (bMap[crore] || crore) + ' কোটি ';
+  if (lakh > 0) words += (bMap[lakh] || lakh) + ' লাখ ';
+  if (thousand > 0) words += (bMap[thousand] || thousand) + ' হাজার ';
+  if (hundred > 0) words += (bMap[hundred] || hundred) + ' শত ';
+  if (rem > 0) words += (bMap[rem] || rem) + ' ';
+
+  return words.trim() + ' টাকা মাত্র';
+}
+
 function getDateDigits(dateStr) {
   let d = '01', m = '10', y = '2026';
   if (dateStr) {
@@ -117,7 +159,8 @@ export default function DocumentGenerator({ applicantData, onClose }) {
     receiptNumber: 'AFB-0058',
     paymentMethod: applicantData?.bank?.method || 'bKash',
     accountNumber: applicantData?.bank?.accountNumber || '01927440422',
-    fineAmount: 110,
+    fineAmount: applicantData?.fineAmount !== undefined ? applicantData.fineAmount : 110,
+    challanAmount: applicantData?.challanAmount !== undefined ? applicantData.challanAmount : 3250,
     policeStation: 'DMP Police Station',
     challanNumber: 'গ-২১৪৫৬৯',
     branch: 'সেগুনবাগিচা, ঢাকা ১০০০',
@@ -170,6 +213,7 @@ export default function DocumentGenerator({ applicantData, onClose }) {
       };
       reader.readAsDataURL(file);
     }
+    e.target.value = '';
   };
 
   const handlePhotoUpload = (e) => {
@@ -181,6 +225,15 @@ export default function DocumentGenerator({ applicantData, onClose }) {
       };
       reader.readAsDataURL(file);
     }
+    e.target.value = '';
+  };
+
+  const handleRemovePhoto = () => {
+    setDocFields(prev => ({ ...prev, photoUrl: '' }));
+  };
+
+  const handleRemoveSignature = () => {
+    setDocFields(prev => ({ ...prev, signatureUrl: '' }));
   };
 
   // Exact 9 documents from Video 3 & document_img reference folder
@@ -461,6 +514,39 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                   </div>
                 </div>
 
+                {/* Specific Amount Customizers: Correction Fine ($ USD) & Challan Amount (৳ BDT) */}
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <div className={`p-2 rounded-lg border transition-all ${selectedDoc === 'correction' ? 'bg-amber-950/60 border-amber-500 ring-1 ring-amber-500 shadow-md shadow-amber-900/30' : 'bg-[#081024] border-blue-900/60'}`}>
+                    <label className="text-amber-300 font-bold block mb-1 text-[11px] flex items-center justify-between">
+                      <span>Correction Fine ($ USD) *</span>
+                      {selectedDoc === 'correction' && <span className="text-[9px] bg-amber-500 text-black px-1.5 py-0.2 rounded font-black">Active</span>}
+                    </label>
+                    <input
+                      type="number"
+                      value={docFields.fineAmount}
+                      onChange={(e) => handleFieldChange('fineAmount', e.target.value)}
+                      placeholder="110"
+                      className="w-full bg-[#050b1a] border border-amber-500/60 rounded-lg px-3 py-1.5 text-amber-200 font-bold font-mono focus:outline-none focus:border-amber-400"
+                    />
+                    <span className="text-[9px] text-slate-400 block mt-0.5">ডলার পরিবর্তন করুন</span>
+                  </div>
+
+                  <div className={`p-2 rounded-lg border transition-all ${selectedDoc === 'challan' ? 'bg-emerald-950/60 border-emerald-500 ring-1 ring-emerald-500 shadow-md shadow-emerald-900/30' : 'bg-[#081024] border-blue-900/60'}`}>
+                    <label className="text-emerald-300 font-bold block mb-1 text-[11px] flex items-center justify-between">
+                      <span>Challan Amount (৳ BDT) *</span>
+                      {selectedDoc === 'challan' && <span className="text-[9px] bg-emerald-500 text-black px-1.5 py-0.2 rounded font-black">Active</span>}
+                    </label>
+                    <input
+                      type="number"
+                      value={docFields.challanAmount}
+                      onChange={(e) => handleFieldChange('challanAmount', e.target.value)}
+                      placeholder="3250"
+                      className="w-full bg-[#050b1a] border border-emerald-500/60 rounded-lg px-3 py-1.5 text-emerald-200 font-bold font-mono focus:outline-none focus:border-emerald-400"
+                    />
+                    <span className="text-[9px] text-slate-400 block mt-0.5">চালানের টাকা পরিবর্তন করুন</span>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-slate-400 font-medium block mb-1">Monthly EMI (৳)</label>
@@ -520,10 +606,22 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                         <img src={docFields.photoUrl} alt="Photo" className="h-full object-cover" />
                       </div>
                     )}
-                    <label className="cursor-pointer block text-center py-1 bg-blue-950 hover:bg-blue-900 border border-blue-800 rounded text-blue-200 text-[10px] font-semibold">
-                      <span>Change Photo</span>
-                      <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
-                    </label>
+                    <div className="flex items-center space-x-1.5">
+                      <label className="flex-1 cursor-pointer block text-center py-1 bg-blue-950 hover:bg-blue-900 border border-blue-800 rounded text-blue-200 text-[10px] font-semibold transition-colors">
+                        <span>Change Photo</span>
+                        <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+                      </label>
+                      {docFields.photoUrl && (
+                        <button
+                          type="button"
+                          onClick={handleRemovePhoto}
+                          className="px-2 py-1 bg-rose-950 hover:bg-rose-900 border border-rose-800/60 rounded text-rose-300 text-[10px] font-semibold transition-colors"
+                          title="Remove Photo"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Signature */}
@@ -541,10 +639,22 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                         <img src={docFields.signatureUrl} alt="Sig" className="max-h-12 max-w-full object-contain" />
                       </div>
                     )}
-                    <label className="cursor-pointer block text-center py-1 bg-blue-950 hover:bg-blue-900 border border-blue-800 rounded text-blue-200 text-[10px] font-semibold">
-                      <span>Change Signature</span>
-                      <input type="file" accept="image/*" onChange={handleSignatureUpload} className="hidden" />
-                    </label>
+                    <div className="flex items-center space-x-1.5">
+                      <label className="flex-1 cursor-pointer block text-center py-1 bg-blue-950 hover:bg-blue-900 border border-blue-800 rounded text-blue-200 text-[10px] font-semibold transition-colors">
+                        <span>Change Signature</span>
+                        <input type="file" accept="image/*" onChange={handleSignatureUpload} className="hidden" />
+                      </label>
+                      {docFields.signatureUrl && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveSignature}
+                          className="px-2 py-1 bg-rose-950 hover:bg-rose-900 border border-rose-800/60 rounded text-rose-300 text-[10px] font-semibold transition-colors"
+                          title="Remove Signature"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -1317,7 +1427,7 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                           </td>
                           <td className="border border-black p-1.5"></td>
                           <td className="border border-black p-1.5 pt-8 font-mono font-bold">
-                            ৩২৫০/-
+                            {toBengaliDigits(docFields.challanAmount || 3250)}/-
                           </td>
                           <td className="border border-black p-1.5"></td>
                           {/* Real Scanned Pink Circular Seal and Designation Block (chalan seal goal hobe.jpeg) */}
@@ -1344,7 +1454,7 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                             মোট টাকা
                           </td>
                           <td className="border border-black p-1 font-mono font-black">
-                            ৩২৫০/-
+                            {toBengaliDigits(docFields.challanAmount || 3250)}/-
                           </td>
                           <td className="border border-black p-1"></td>
                           <td className="border border-black p-1"></td>
@@ -1354,7 +1464,7 @@ export default function DocumentGenerator({ applicantData, onClose }) {
 
                     {/* Bottom Info matching 5.jpeg */}
                     <div className="space-y-1 pt-1 text-[10px]">
-                      <p><strong>টাকা (কথায়) :</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; তিন হাজার দুইশত পঞ্চাশ টাকা মাত্র</p>
+                      <p><strong>টাকা (কথায়) :</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; {toWordsBangla(docFields.challanAmount || 3250)}</p>
                       <p><strong>টাকা পাওয়া গেল :</strong> &nbsp;&nbsp; __________________________________________________</p>
                       <p><strong>তারিখ :</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; {docFields.date}</p>
                     </div>

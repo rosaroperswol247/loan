@@ -100,6 +100,14 @@ export async function POST(request) {
       return NextResponse.json({ success: false, message: 'ঋণের পরিমাণ ও মেয়াদ নির্বাচন করুন' }, { status: 400 });
     }
 
+    if (numAmount < 50000 || numAmount > 2000000) {
+      return NextResponse.json({ success: false, message: 'গ্রাহকের আবেদনের ক্ষেত্রে ঋণের পরিমাণ ৫০,০০০ টাকা থেকে ২০,০০,০০০ টাকার মধ্যে হতে হবে' }, { status: 400 });
+    }
+
+    if (numTenure < 12 || numTenure > 60) {
+      return NextResponse.json({ success: false, message: 'গ্রাহকের আবেদনের ক্ষেত্রে ঋণের মেয়াদ ১২ মাস থেকে ৬০ মাসের মধ্যে হতে হবে' }, { status: 400 });
+    }
+
     // Flat annual interest rate of 2.4% per year.
     // Total Repayment = Principal + (Principal x Tenure/12 x 0.024)
     // Monthly EMI     = Total Repayment / Tenure

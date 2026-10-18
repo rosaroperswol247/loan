@@ -261,23 +261,13 @@ export async function PATCH(request) {
       : (['pending', 'approved', 'rejected'].includes(currentLoan?.status) ? currentLoan.status : 'pending');
     changes.status = resolvedStatus;
 
-    // Resolve Amount & Tenure with validation
-    const loanAmt = (amount !== undefined && Number(amount) > 0) ? Number(amount) : (Number(currentLoan.amount) || 50000);
-    const tenure = (tenureMonths !== undefined && Number(tenureMonths) > 0) ? Number(tenureMonths) : (Number(currentLoan.tenure_months) || 12);
-
-    if (loanAmt < 50000 || loanAmt > 2000000) {
-      return NextResponse.json({
-        success: false,
-        message: 'ঋণের পরিমাণ ৫০,০০০ টাকা থেকে ২০,০০,০০০ টাকার মধ্যে হতে হবে'
-      }, { status: 400 });
-    }
-
-    if (tenure < 12 || tenure > 60) {
-      return NextResponse.json({
-        success: false,
-        message: 'ঋণের মেয়াদ ১২ মাস থেকে ৬০ মাসের মধ্যে হতে হবে'
-      }, { status: 400 });
-    }
+    // Resolve Amount & Tenure (Admin has no limits, can set any amount as desired)
+    const loanAmt = (amount !== undefined && Number(amount) > 0)
+      ? Number(amount)
+      : (Number(currentLoan.amount) || 50000);
+    const tenure = (tenureMonths !== undefined && Number(tenureMonths) > 0)
+      ? Number(tenureMonths)
+      : (Number(currentLoan.tenure_months) || 12);
 
     changes.amount = loanAmt;
     changes.tenure_months = tenure;
@@ -320,7 +310,7 @@ export async function PATCH(request) {
       return NextResponse.json({
         success: false,
         message: updateError.message?.includes('loans_amount_check')
-          ? 'ঋণের পরিমাণ ৫০,০০০ টাকা থেকে ২০,০০,০০০ টাকার মধ্যে হতে হবে'
+          ? 'ডাটাবেজ কনস্ট্রেইন্ট অনুযায়ী এই পরিমাণটি সমর্থিত নয়। অনুগ্রহ করে Supabase-এ মাইগ্রেশন চালিয়ে লিমিট মুক্ত করুন।'
           : (updateError.message || 'আপডেট করতে ব্যর্থ হয়েছে')
       }, { status: 400 });
     }

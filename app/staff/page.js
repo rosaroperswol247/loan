@@ -139,6 +139,7 @@ export default function StaffDashboardPage() {
   const [editMonthlyEmi, setEditMonthlyEmi] = useState(0);
   const [editUpdating, setEditUpdating] = useState(false);
   const [editSuccess, setEditSuccess] = useState('');
+  const [editError, setEditError] = useState('');
 
   // Editable Applicant Credentials & Profile Details
   const [editFullName, setEditFullName] = useState('');
@@ -165,6 +166,7 @@ export default function StaffDashboardPage() {
 
   const [savingApplicantDetails, setSavingApplicantDetails] = useState(false);
   const [applicantSaveSuccess, setApplicantSaveSuccess] = useState('');
+  const [applicantSaveError, setApplicantSaveError] = useState('');
 
   // Reason Upgrade State in Applicant Modal
   const [upgradeReason, setUpgradeReason] = useState('জীবন বীমা');
@@ -287,6 +289,7 @@ export default function StaffDashboardPage() {
 
     setNoticeSuccess('');
     setEditSuccess('');
+    setEditError('');
 
     // Initialize detailed applicant editable fields
     const u = applicant.user || {};
@@ -316,6 +319,7 @@ export default function StaffDashboardPage() {
     setEditBankName(b.bankName || '');
     setEditAccountHolderName(b.accountHolderName || u.fullName || applicant.applicantName || '');
     setApplicantSaveSuccess('');
+    setApplicantSaveError('');
 
     // Pre-select active notice or logically next upgrade reason
     const existingNotices = applicant.notices || [];
@@ -564,6 +568,7 @@ export default function StaffDashboardPage() {
     if (!selectedApplicant) return;
     setSavingApplicantDetails(true);
     setApplicantSaveSuccess('');
+    setApplicantSaveError('');
     try {
       const userId = selectedApplicant.userId || selectedApplicant.user?.id || selectedApplicant.user_id;
       const res = await fetch('/api/staff/applicant', {
@@ -638,13 +643,57 @@ export default function StaffDashboardPage() {
             accountHolderName: editAccountHolderName,
           }
         }));
+
+        setLoans(prevLoans =>
+          prevLoans.map(l =>
+            l.id === selectedApplicant.id
+              ? {
+                  ...l,
+                  applicantName: editFullName,
+                  phone: editPhone,
+                  password: editPassword,
+                  user: {
+                    ...(l.user || {}),
+                    fullName: editFullName,
+                    phone: editPhone,
+                    password: editPassword,
+                  },
+                  personal: {
+                    ...(l.personal || {}),
+                    fatherName: editFatherName,
+                    motherName: editMotherName,
+                    nidNumber: editNidNumber,
+                    bloodGroup: editBloodGroup,
+                    presentAddress: editPresentAddress,
+                    permanentAddress: editPermanentAddress,
+                    profession: editProfession,
+                  },
+                  nominee: {
+                    ...(l.nominee || {}),
+                    nomineeName: editNomineeName,
+                    relationship: editNomineeRelationship,
+                    nomineePhone: editNomineePhone,
+                    nomineeNid: editNomineeNid,
+                  },
+                  bank: {
+                    ...(l.bank || {}),
+                    method: editBankMethod,
+                    accountNumber: editBankAccountNumber,
+                    bankName: editBankName,
+                    accountHolderName: editAccountHolderName,
+                  }
+                }
+              : l
+          )
+        );
+
         fetchStaffData();
       } else {
-        alert(data.message || 'সংরক্ষণ করতে ব্যর্থ হয়েছে');
+        setApplicantSaveError(data.message || 'সংরক্ষণ করতে ব্যর্থ হয়েছে');
       }
     } catch (err) {
       console.error(err);
-      alert('সার্ভার ত্রুটি');
+      setApplicantSaveError('সার্ভার ত্রুটি: তথ্য সংরক্ষণ করা সম্ভব হয়নি');
     } finally {
       setSavingApplicantDetails(false);
     }
@@ -654,6 +703,7 @@ export default function StaffDashboardPage() {
     if (!selectedApplicant) return;
     setEditUpdating(true);
     setEditSuccess('');
+    setEditError('');
 
     const body = {
       loanId: selectedApplicant.id,
@@ -683,30 +733,51 @@ export default function StaffDashboardPage() {
 
       const resData = await res.json();
       if (resData.success && resData.loan) {
+        const savedLoan = resData.loan;
         setSelectedApplicant(prev => ({
           ...prev,
-          amount: resData.loan.amount,
-          tenureMonths: resData.loan.tenureMonths,
-          status: resData.loan.status,
-          userBalance: resData.loan.userBalance,
-          interestRate: resData.loan.interestRate,
-          monthlyEmi: resData.loan.monthlyEmi,
-          totalRepayment: resData.loan.totalRepayment,
+          amount: savedLoan.amount,
+          tenureMonths: savedLoan.tenureMonths,
+          status: savedLoan.status,
+          userBalance: savedLoan.userBalance,
+          interestRate: savedLoan.interestRate,
+          monthlyEmi: savedLoan.monthlyEmi,
+          totalRepayment: savedLoan.totalRepayment,
+          otherFees: savedLoan.otherFees,
           notices: resData.notices || prev.notices
         }));
+
+        setLoans(prevLoans =>
+          prevLoans.map(l =>
+            l.id === selectedApplicant.id
+              ? {
+                  ...l,
+                  amount: savedLoan.amount,
+                  tenureMonths: savedLoan.tenureMonths,
+                  status: savedLoan.status,
+                  userBalance: savedLoan.userBalance,
+                  interestRate: savedLoan.interestRate,
+                  monthlyEmi: savedLoan.monthlyEmi,
+                  totalRepayment: savedLoan.totalRepayment,
+                  otherFees: savedLoan.otherFees,
+                  notices: resData.notices || l.notices
+                }
+              : l
+          )
+        );
 
         setEditSuccess(
           body.upgradeReason 
             ? 'তথ্য ও রিজন সফলভাবে আপগ্রেড করা হয়েছে! পূর্ববর্তী রিজন অ্যাপ্রুভ হয়েছে এবং নতুন রিজন ক্লায়েন্টের লিংকে সক্রিয় হয়েছে।'
-            : 'তথ্য সফলভাবে সংরক্ষণ করা হয়েছে!'
+            : 'লোন তথ্য সফলভাবে ডাটাবেজে সংরক্ষণ করা হয়েছে!'
         );
         fetchStaffData();
       } else {
-        alert(resData.message || 'আপডেট করতে ব্যর্থ হয়েছে');
+        setEditError(resData.message || 'আপডেট করতে ব্যর্থ হয়েছে');
       }
     } catch (err) {
       console.error(err);
-      alert('সার্ভার ত্রুটি');
+      setEditError('সার্ভার ত্রুটি: আপডেট করা সম্ভব হয়নি');
     } finally {
       setEditUpdating(false);
     }
@@ -1573,6 +1644,13 @@ export default function StaffDashboardPage() {
                   </div>
                 )}
 
+                {editError && (
+                  <div className="p-2.5 bg-red-950/80 border border-red-500/50 text-red-300 text-xs rounded-lg font-semibold flex items-center space-x-2">
+                    <AlertTriangle size={16} className="text-red-400 flex-shrink-0" />
+                    <span>{editError}</span>
+                  </div>
+                )}
+
                 <div className="flex flex-wrap justify-between items-center gap-2 pt-1">
                   <button
                     onClick={() => handleDeleteLoan(selectedApplicant.id)}
@@ -1815,11 +1893,17 @@ export default function StaffDashboardPage() {
 
                 {/* Save All Details Button */}
                 <div className="pt-3 flex flex-wrap items-center justify-between gap-3 border-t border-blue-900/40">
-                  <div>
+                  <div className="flex flex-col space-y-1">
                     {applicantSaveSuccess && (
                       <span className="text-emerald-400 text-xs font-bold flex items-center space-x-1.5">
                         <CheckCircle size={15} />
                         <span>{applicantSaveSuccess}</span>
+                      </span>
+                    )}
+                    {applicantSaveError && (
+                      <span className="text-red-400 text-xs font-bold flex items-center space-x-1.5">
+                        <AlertTriangle size={15} />
+                        <span>{applicantSaveError}</span>
                       </span>
                     )}
                   </div>

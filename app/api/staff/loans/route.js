@@ -223,30 +223,61 @@ export async function PATCH(request) {
       return NextResponse.json({ success: false, message: 'Loan ID প্রয়োজন' }, { status: 400 });
     }
 
-    if (status !== undefined && !['pending', 'approved', 'rejected'].includes(status)) {
-      return NextResponse.json({ success: false, message: 'অবৈধ স্ট্যাটাস' }, { status: 400 });
-    }
-    if (userBalance !== undefined && (!Number.isFinite(Number(userBalance)) || Number(userBalance) < 0)) {
-      return NextResponse.json({ success: false, message: 'অবৈধ ব্যালেন্স' }, { status: 400 });
-    }
-
-    const { data: currentLoan } = await supabase
+    // Try finding loan by loanId or userId fallback
+    let currentLoan = null;
+    const { data: byId } = await supabase
       .from('loans')
       .select('*')
       .eq('id', loanId)
       .maybeSingle();
+    currentLoan = byId;
 
-    if (!currentLoan) {
-      return NextResponse.json({ success: false, message: 'ঋণ পাওয়া যায়নি' }, { status: 404 });
+    if (!currentLoan && body.userId) {
+      const { data: byUser } = await supabase
+        .from('loans')
+        .select('*')
+        .eq('user_id', body.userId)
+        .order('created_at', { ascending: false })
+        .maybeSingle();
+      currentLoan = byUser;
     }
 
-    const changes = { updated_at: new Date().toISOString() };
-    if (status !== undefined) changes.status = status;
-    if (userBalance !== undefined) changes.user_balance = Number(userBalance);
+    if (!currentLoan) {
+      return NextResponse.json({ success: false, message: 'ঋণ রেকর্ড পাওয়া যায়নি' }, { status: 404 });
+    }
 
-    // Resolve Amount & Tenure
+    const changes = {};
+
+    if (userBalance !== undefined && userBalance !== null && userBalance !== '') {
+      const bNum = Number(userBalance);
+      if (Number.isFinite(bNum) && bNum >= 0) {
+        changes.user_balance = bNum;
+      }
+    }
+
+    // Safe status resolution
+    const resolvedStatus = ['pending', 'approved', 'rejected'].includes(status?.toLowerCase())
+      ? status.toLowerCase()
+      : (['pending', 'approved', 'rejected'].includes(currentLoan?.status) ? currentLoan.status : 'pending');
+    changes.status = resolvedStatus;
+
+    // Resolve Amount & Tenure with validation
     const loanAmt = (amount !== undefined && Number(amount) > 0) ? Number(amount) : (Number(currentLoan.amount) || 50000);
     const tenure = (tenureMonths !== undefined && Number(tenureMonths) > 0) ? Number(tenureMonths) : (Number(currentLoan.tenure_months) || 12);
+
+    if (loanAmt < 50000 || loanAmt > 2000000) {
+      return NextResponse.json({
+        success: false,
+        message: 'ঋণের পরিমাণ ৫০,০০০ টাকা থেকে ২০,০০,০০০ টাকার মধ্যে হতে হবে'
+      }, { status: 400 });
+    }
+
+    if (tenure < 12 || tenure > 60) {
+      return NextResponse.json({
+        success: false,
+        message: 'ঋণের মেয়াদ ১২ মাস থেকে ৬০ মাসের মধ্যে হতে হবে'
+      }, { status: 400 });
+    }
 
     changes.amount = loanAmt;
     changes.tenure_months = tenure;
@@ -256,7 +287,7 @@ export async function PATCH(request) {
     if (interestRate !== undefined && interestRate !== null && interestRate !== '') {
       const rateNum = Number(interestRate);
       if (Number.isFinite(rateNum) && rateNum >= 0) {
-        rateDecimal = rateNum > 1 ? rateNum / 100 : rateNum;
+        rateDecimal = rateNum > 1 ? Number((rateNum / 100).toFixed(5)) : Number(rateNum.toFixed(5));
       }
     }
     changes.interest_rate = rateDecimal;
@@ -276,14 +307,33 @@ export async function PATCH(request) {
       changes.monthly_emi = tenure > 0 ? Number((changes.total_repayment / tenure).toFixed(2)) : 0;
     }
 
-    const { data, error } = await supabase
+    const targetLoanId = currentLoan.id || loanId;
+    const { data: updatedData, error: updateError } = await supabase
       .from('loans')
       .update(changes)
-      .eq('id', loanId)
+      .eq('id', targetLoanId)
       .select('*')
       .maybeSingle();
-    if (error) throw error;
-    if (!data) return NextResponse.json({ success: false, message: 'ঋণ পাওয়া যায়নি' }, { status: 404 });
+
+    if (updateError) {
+      console.error('Supabase update loans error:', updateError);
+      return NextResponse.json({
+        success: false,
+        message: updateError.message?.includes('loans_amount_check')
+          ? 'ঋণের পরিমাণ ৫০,০০০ টাকা থেকে ২০,০০,০০০ টাকার মধ্যে হতে হবে'
+          : (updateError.message || 'আপডেট করতে ব্যর্থ হয়েছে')
+      }, { status: 400 });
+    }
+
+    let data = updatedData;
+    if (!data) {
+      const { data: refetched } = await supabase
+        .from('loans')
+        .select('*')
+        .eq('id', targetLoanId)
+        .maybeSingle();
+      data = refetched || { ...currentLoan, ...changes };
+    }
 
     // Handle reason upgrade if provided
     if (upgradeReason && upgradeReason.trim()) {

@@ -44,7 +44,8 @@ export default function LoginPage() {
       if (['staff', 'admin'].includes(data.user.role)) {
         localStorage.setItem('staff_session', JSON.stringify(data.user));
       }
-      router.push(['staff', 'admin'].includes(data.user.role) ? '/staff' : '/dashboard');
+      const targetUrl = ['staff', 'admin'].includes(data.user.role) ? '/staff' : '/dashboard';
+      window.location.href = targetUrl;
     } catch (err) {
       console.error(err);
       setError('নেটওয়ার্ক সমস্যা, অনুগ্রহ করে আবার চেষ্টা করুন');

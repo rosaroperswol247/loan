@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ClientHeader from '@/components/ClientHeader';
-import { Landmark, Bookmark, ArrowRight, CheckCircle, ShieldCheck, User } from 'lucide-react';
+import { Landmark, Bookmark, ArrowRight, ArrowLeft, CheckCircle, ShieldCheck, User } from 'lucide-react';
 
 const BANGLADESH_BANKS = [
   // সরকারি বাণিজ্যিক ও বিশেষায়িত ব্যাংক (State-Owned & Specialized)
@@ -358,15 +358,26 @@ export default function BankInfoPage() {
             )}
           </div>
 
-          {/* Action button to proceed directly to dashboard */}
-          <button
-            type="button"
-            onClick={() => router.push('/dashboard')}
-            className="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center space-x-2 transition-all shadow-md shadow-blue-500/20 text-sm mt-3"
-          >
-            <span>ঋণ ড্যাশবোর্ডে যান</span>
-            <ArrowRight size={16} />
-          </button>
+          {/* Navigation Buttons */}
+          <div className="grid grid-cols-2 gap-2.5 mt-3">
+            <button
+              type="button"
+              onClick={() => router.push('/nominee-info')}
+              className="w-full py-2.5 px-3 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs flex items-center justify-center space-x-1.5 transition-all shadow-sm"
+            >
+              <ArrowLeft size={14} />
+              <span>নমিনী তথ্য (Back)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => router.push('/dashboard')}
+              className="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-bold py-2.5 px-3 rounded-xl flex items-center justify-center space-x-1.5 transition-all shadow-md shadow-blue-500/20 text-xs"
+            >
+              <span>ঋণ ড্যাশবোর্ড</span>
+              <ArrowRight size={14} />
+            </button>
+          </div>
         </div>
       </main>
     </div>

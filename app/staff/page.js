@@ -33,10 +33,11 @@ import {
   Rocket,
   CheckCircle,
   RefreshCw,
-  Upload
+  Upload,
+  Save
 } from 'lucide-react';
 
-function AttachmentTile({ src, label, onOpen, onUpload, contain }) {
+function AttachmentTile({ src, label, onOpen, onUpload, contain, heightClass = 'h-24' }) {
   const has = !!src;
   const fileInputRef = useRef(null);
 
@@ -50,11 +51,11 @@ function AttachmentTile({ src, label, onOpen, onUpload, contain }) {
 
   return (
     <div
-      className={`group bg-[#09132c] border border-blue-900/40 rounded-xl p-2 flex flex-col justify-between transition-all hover:border-cyan-400`}
+      className={`group bg-[#09132c] border border-blue-900/40 rounded-xl p-2.5 flex flex-col justify-between transition-all hover:border-cyan-400 shadow-sm`}
     >
       <div
         onClick={() => has && onOpen(src)}
-        className={`w-full h-24 rounded-lg overflow-hidden flex items-center justify-center relative ${contain ? 'bg-white p-2' : 'bg-slate-900'} ${has ? 'cursor-pointer' : ''}`}
+        className={`w-full ${heightClass} rounded-lg overflow-hidden flex items-center justify-center relative ${contain ? 'bg-white p-2' : 'bg-slate-900'} ${has ? 'cursor-pointer' : ''}`}
         title={has ? "Click to view full size" : "No image uploaded"}
       >
         {has ? (
@@ -138,6 +139,32 @@ export default function StaffDashboardPage() {
   const [editMonthlyEmi, setEditMonthlyEmi] = useState(0);
   const [editUpdating, setEditUpdating] = useState(false);
   const [editSuccess, setEditSuccess] = useState('');
+
+  // Editable Applicant Credentials & Profile Details
+  const [editFullName, setEditFullName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+
+  const [editFatherName, setEditFatherName] = useState('');
+  const [editMotherName, setEditMotherName] = useState('');
+  const [editNidNumber, setEditNidNumber] = useState('');
+  const [editBloodGroup, setEditBloodGroup] = useState('');
+  const [editPresentAddress, setEditPresentAddress] = useState('');
+  const [editPermanentAddress, setEditPermanentAddress] = useState('');
+  const [editProfession, setEditProfession] = useState('');
+
+  const [editNomineeName, setEditNomineeName] = useState('');
+  const [editNomineeRelationship, setEditNomineeRelationship] = useState('');
+  const [editNomineePhone, setEditNomineePhone] = useState('');
+  const [editNomineeNid, setEditNomineeNid] = useState('');
+
+  const [editBankMethod, setEditBankMethod] = useState('');
+  const [editBankAccountNumber, setEditBankAccountNumber] = useState('');
+  const [editBankName, setEditBankName] = useState('');
+  const [editAccountHolderName, setEditAccountHolderName] = useState('');
+
+  const [savingApplicantDetails, setSavingApplicantDetails] = useState(false);
+  const [applicantSaveSuccess, setApplicantSaveSuccess] = useState('');
 
   // Reason Upgrade State in Applicant Modal
   const [upgradeReason, setUpgradeReason] = useState('জীবন বীমা');
@@ -260,6 +287,35 @@ export default function StaffDashboardPage() {
 
     setNoticeSuccess('');
     setEditSuccess('');
+
+    // Initialize detailed applicant editable fields
+    const u = applicant.user || {};
+    const p = applicant.personal || {};
+    const n = applicant.nominee || {};
+    const b = applicant.bank || {};
+
+    setEditFullName(u.fullName || applicant.applicantName || '');
+    setEditPhone(u.phone || applicant.phone || '');
+    setEditPassword(u.password || applicant.password || '');
+
+    setEditFatherName(p.fatherName || '');
+    setEditMotherName(p.motherName || '');
+    setEditNidNumber(p.nidNumber || '');
+    setEditBloodGroup(p.bloodGroup || '');
+    setEditPresentAddress(p.presentAddress || '');
+    setEditPermanentAddress(p.permanentAddress || '');
+    setEditProfession(p.profession || '');
+
+    setEditNomineeName(n.nomineeName || '');
+    setEditNomineeRelationship(n.relationship || '');
+    setEditNomineePhone(n.nomineePhone || '');
+    setEditNomineeNid(n.nomineeNid || '');
+
+    setEditBankMethod(b.method || '');
+    setEditBankAccountNumber(b.accountNumber || '');
+    setEditBankName(b.bankName || '');
+    setEditAccountHolderName(b.accountHolderName || u.fullName || applicant.applicantName || '');
+    setApplicantSaveSuccess('');
 
     // Pre-select active notice or logically next upgrade reason
     const existingNotices = applicant.notices || [];
@@ -502,6 +558,96 @@ export default function StaffDashboardPage() {
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleSaveAllApplicantInfo = async () => {
+    if (!selectedApplicant) return;
+    setSavingApplicantDetails(true);
+    setApplicantSaveSuccess('');
+    try {
+      const userId = selectedApplicant.userId || selectedApplicant.user?.id || selectedApplicant.user_id;
+      const res = await fetch('/api/staff/applicant', {
+        method: 'PATCH',
+        headers: getStaffHeaders(),
+        body: JSON.stringify({
+          userId,
+          fullName: editFullName,
+          phone: editPhone,
+          password: editPassword,
+          personal: {
+            fatherName: editFatherName,
+            motherName: editMotherName,
+            nidNumber: editNidNumber,
+            bloodGroup: editBloodGroup,
+            presentAddress: editPresentAddress,
+            permanentAddress: editPermanentAddress,
+            profession: editProfession,
+          },
+          nominee: {
+            nomineeName: editNomineeName,
+            relationship: editNomineeRelationship,
+            nomineePhone: editNomineePhone,
+            nomineeNid: editNomineeNid,
+          },
+          bank: {
+            method: editBankMethod,
+            accountNumber: editBankAccountNumber,
+            bankName: editBankName,
+            accountHolderName: editAccountHolderName,
+          },
+          userBalance: Number(editBalance) || 0
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setApplicantSaveSuccess('সকল গ্রাহক ও নমিনী তথ্য সফলভাবে সংরক্ষিত হয়েছে!');
+        setSelectedApplicant(prev => ({
+          ...prev,
+          applicantName: editFullName,
+          phone: editPhone,
+          password: editPassword,
+          user: {
+            ...(prev?.user || {}),
+            fullName: editFullName,
+            phone: editPhone,
+            password: editPassword,
+          },
+          personal: {
+            ...(prev?.personal || {}),
+            fatherName: editFatherName,
+            motherName: editMotherName,
+            nidNumber: editNidNumber,
+            bloodGroup: editBloodGroup,
+            presentAddress: editPresentAddress,
+            permanentAddress: editPermanentAddress,
+            profession: editProfession,
+          },
+          nominee: {
+            ...(prev?.nominee || {}),
+            nomineeName: editNomineeName,
+            relationship: editNomineeRelationship,
+            nomineePhone: editNomineePhone,
+            nomineeNid: editNomineeNid,
+          },
+          bank: {
+            ...(prev?.bank || {}),
+            method: editBankMethod,
+            accountNumber: editBankAccountNumber,
+            bankName: editBankName,
+            accountHolderName: editAccountHolderName,
+          }
+        }));
+        fetchStaffData();
+      } else {
+        alert(data.message || 'সংরক্ষণ করতে ব্যর্থ হয়েছে');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('সার্ভার ত্রুটি');
+    } finally {
+      setSavingApplicantDetails(false);
+    }
   };
 
   const handleUpdateInformation = async (doUpgrade = false) => {
@@ -1011,43 +1157,175 @@ export default function StaffDashboardPage() {
             {/* Modal Body */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
               
-              {/* SECTION 1: Login Credentials */}
-              <div className="space-y-2">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center space-x-1.5">
-                  <Lock size={13} className="text-cyan-400" />
-                  <span>Login Credentials</span>
-                </span>
+              {/* TOP CONTAINER: Left = Personal Information, Right = Login Credentials + Loan Details & Upgrade Option */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
                 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                  <div className="bg-blue-600/20 border border-blue-500/50 rounded-xl p-3 flex flex-col justify-between shadow-sm">
-                    <span className="text-[10px] text-blue-300 font-semibold uppercase">ID Number</span>
-                    <span className="font-mono font-black text-lg text-blue-400 mt-1">
-                      {selectedApplicant.user?.id || selectedApplicant.userId}
-                    </span>
-                  </div>
+                {/* LEFT SIDE DIV: Personal Information (বড় ও স্পষ্ট ফন্ট, এডিটেবল ইনপুট) */}
+                <div className="bg-[#0f1d40] border border-blue-900/60 rounded-xl p-4 sm:p-5 space-y-4 shadow-md h-full flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between border-b border-blue-900/50 pb-3">
+                      <span className="text-sm font-extrabold text-cyan-400 uppercase tracking-wider flex items-center space-x-2">
+                        <User size={17} className="text-cyan-400" />
+                        <span>Personal Information (ব্যক্তিগত তথ্য)</span>
+                      </span>
+                      <span className="text-xs text-blue-300 font-semibold bg-blue-950 px-2.5 py-0.5 rounded-full border border-blue-800/60">
+                        Editable
+                      </span>
+                    </div>
 
-                  <div className="bg-purple-600/20 border border-purple-500/50 rounded-xl p-3 flex flex-col justify-between shadow-sm">
-                    <span className="text-[10px] text-purple-300 font-semibold uppercase">Name</span>
-                    <span className="font-bold text-sm text-purple-200 mt-1 truncate">
-                      {selectedApplicant.user?.fullName || selectedApplicant.applicantName}
-                    </span>
-                  </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-4 text-xs">
+                      {/* Full Name */}
+                      <div className="sm:col-span-2 bg-[#09132c] p-3 rounded-lg border border-blue-800/50">
+                        <label className="text-slate-300 text-xs font-bold block mb-1">গ্রাহকের নাম (Applicant Full Name)</label>
+                        <input
+                          type="text"
+                          value={editFullName}
+                          onChange={(e) => setEditFullName(e.target.value)}
+                          className="w-full bg-slate-900/90 border border-blue-700/60 rounded-md px-3 py-2 text-white font-bold text-sm focus:outline-none focus:border-cyan-400"
+                          placeholder="গ্রাহকের পূর্ণ নাম"
+                        />
+                      </div>
 
-                  <div className="bg-emerald-600/20 border border-emerald-500/50 rounded-xl p-3 flex flex-col justify-between shadow-sm">
-                    <span className="text-[10px] text-emerald-300 font-semibold uppercase">Phone Number</span>
-                    <span className="font-mono font-bold text-sm text-emerald-300 mt-1">
-                      {selectedApplicant.user?.phone || selectedApplicant.phone}
-                    </span>
-                  </div>
+                      {/* Father's Name */}
+                      <div className="bg-[#09132c] p-3 rounded-lg border border-blue-800/50">
+                        <label className="text-slate-300 text-xs font-bold block mb-1">পিতার নাম (Father's Name)</label>
+                        <input
+                          type="text"
+                          value={editFatherName}
+                          onChange={(e) => setEditFatherName(e.target.value)}
+                          className="w-full bg-slate-900/90 border border-blue-700/60 rounded-md px-3 py-2 text-white font-semibold text-sm focus:outline-none focus:border-cyan-400"
+                          placeholder="পিতার নাম"
+                        />
+                      </div>
 
-                  <div className="bg-amber-600/20 border border-amber-500/50 rounded-xl p-3 flex flex-col justify-between shadow-sm">
-                    <span className="text-[10px] text-amber-300 font-semibold uppercase">Password</span>
-                    <span className="font-mono font-bold text-sm text-amber-300 mt-1 break-all">
-                      {selectedApplicant.user?.password || selectedApplicant.password || 'পাসওয়ার্ড রেকর্ড নেই'}
-                    </span>
+                      {/* Mother's Name */}
+                      <div className="bg-[#09132c] p-3 rounded-lg border border-blue-800/50">
+                        <label className="text-slate-300 text-xs font-bold block mb-1">মাতার নাম (Mother's Name)</label>
+                        <input
+                          type="text"
+                          value={editMotherName}
+                          onChange={(e) => setEditMotherName(e.target.value)}
+                          className="w-full bg-slate-900/90 border border-blue-700/60 rounded-md px-3 py-2 text-white font-semibold text-sm focus:outline-none focus:border-cyan-400"
+                          placeholder="মাতার নাম"
+                        />
+                      </div>
+
+                      {/* NID Number */}
+                      <div className="bg-[#09132c] p-3 rounded-lg border border-blue-800/50">
+                        <label className="text-slate-300 text-xs font-bold block mb-1">এনআইডি নম্বর (NID Number)</label>
+                        <input
+                          type="text"
+                          value={editNidNumber}
+                          onChange={(e) => setEditNidNumber(e.target.value)}
+                          className="w-full bg-slate-900/90 border border-blue-700/60 rounded-md px-3 py-2 text-white font-mono font-bold text-sm focus:outline-none focus:border-cyan-400"
+                          placeholder="NID নম্বর"
+                        />
+                      </div>
+
+                      {/* Blood Group */}
+                      <div className="bg-[#09132c] p-3 rounded-lg border border-blue-800/50">
+                        <label className="text-slate-300 text-xs font-bold block mb-1">রক্তের গ্রুপ (Blood Group)</label>
+                        <input
+                          type="text"
+                          value={editBloodGroup}
+                          onChange={(e) => setEditBloodGroup(e.target.value)}
+                          className="w-full bg-slate-900/90 border border-blue-700/60 rounded-md px-3 py-2 text-rose-300 font-bold text-sm focus:outline-none focus:border-cyan-400"
+                          placeholder="যেমন: A+, B+, O+"
+                        />
+                      </div>
+
+                      {/* Present Address */}
+                      <div className="sm:col-span-2 bg-[#09132c] p-3 rounded-lg border border-blue-800/50">
+                        <label className="text-slate-300 text-xs font-bold block mb-1">বর্তমান ঠিকানা (Present Address)</label>
+                        <textarea
+                          rows="2"
+                          value={editPresentAddress}
+                          onChange={(e) => setEditPresentAddress(e.target.value)}
+                          className="w-full bg-slate-900/90 border border-blue-700/60 rounded-md px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-400 leading-relaxed"
+                          placeholder="বর্তমান ঠিকানা লিখুন"
+                        />
+                      </div>
+
+                      {/* Permanent Address */}
+                      <div className="sm:col-span-2 bg-[#09132c] p-3 rounded-lg border border-blue-800/50">
+                        <label className="text-slate-300 text-xs font-bold block mb-1">স্থায়ী ঠিকানা (Permanent Address)</label>
+                        <textarea
+                          rows="2"
+                          value={editPermanentAddress}
+                          onChange={(e) => setEditPermanentAddress(e.target.value)}
+                          className="w-full bg-slate-900/90 border border-blue-700/60 rounded-md px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-400 leading-relaxed"
+                          placeholder="স্থায়ী ঠিকানা লিখুন"
+                        />
+                      </div>
+
+                      {/* Profession */}
+                      <div className="sm:col-span-2 bg-[#09132c] p-3 rounded-lg border border-blue-800/50">
+                        <label className="text-slate-300 text-xs font-bold block mb-1">পেশা (Profession)</label>
+                        <input
+                          type="text"
+                          value={editProfession}
+                          onChange={(e) => setEditProfession(e.target.value)}
+                          className="w-full bg-slate-900/90 border border-blue-700/60 rounded-md px-3 py-2 text-white font-medium text-sm focus:outline-none focus:border-cyan-400"
+                          placeholder="পেশা"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
+
+                {/* RIGHT SIDE DIV: Login Credentials + Loan Details & Upgrade Option */}
+                <div className="space-y-4">
+                  {/* 1. Login Credentials (Editable phone and password!) */}
+                  <div className="bg-[#0f1d40] border border-blue-900/60 rounded-xl p-4 space-y-3 shadow-md">
+                    <div className="flex items-center justify-between border-b border-blue-900/50 pb-2">
+                      <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center space-x-1.5">
+                        <Lock size={14} className="text-cyan-400" />
+                        <span>Login Credentials (লগইন তথ্য)</span>
+                      </span>
+                      <span className="text-[10px] text-amber-300 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-800/40">
+                        পরিবর্তনযোগ্য
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                      <div className="bg-blue-600/20 border border-blue-500/50 rounded-xl p-3 flex flex-col justify-between shadow-sm">
+                        <span className="text-[10px] text-blue-300 font-semibold uppercase">ID Number</span>
+                        <span className="font-mono font-black text-lg text-blue-400 mt-1">
+                          {selectedApplicant.user?.id || selectedApplicant.userId}
+                        </span>
+                      </div>
+
+                      <div className="bg-purple-600/20 border border-purple-500/50 rounded-xl p-3 flex flex-col justify-between shadow-sm">
+                        <label className="text-[10px] text-purple-300 font-semibold uppercase">Login Name</label>
+                        <input
+                          type="text"
+                          value={editFullName}
+                          onChange={(e) => setEditFullName(e.target.value)}
+                          className="mt-1 bg-slate-900/90 border border-purple-700/60 rounded px-2.5 py-1 text-purple-200 font-bold text-xs focus:outline-none focus:border-purple-400"
+                        />
+                      </div>
+
+                      <div className="bg-emerald-600/20 border border-emerald-500/50 rounded-xl p-3 flex flex-col justify-between shadow-sm">
+                        <label className="text-[10px] text-emerald-300 font-semibold uppercase">Phone Number</label>
+                        <input
+                          type="text"
+                          value={editPhone}
+                          onChange={(e) => setEditPhone(e.target.value)}
+                          className="mt-1 bg-slate-900/90 border border-emerald-700/60 rounded px-2.5 py-1 text-emerald-300 font-mono font-bold text-xs focus:outline-none focus:border-emerald-400"
+                        />
+                      </div>
+
+                      <div className="bg-amber-600/20 border border-amber-500/50 rounded-xl p-3 flex flex-col justify-between shadow-sm">
+                        <label className="text-[10px] text-amber-300 font-semibold uppercase">Password</label>
+                        <input
+                          type="text"
+                          value={editPassword}
+                          onChange={(e) => setEditPassword(e.target.value)}
+                          className="mt-1 bg-slate-900/90 border border-amber-700/60 rounded px-2.5 py-1 text-amber-300 font-mono font-bold text-xs focus:outline-none focus:border-amber-400"
+                        />
+                      </div>
+                    </div>
+                  </div>
 
               {/* SECTION 2: Loan Application Details & Upgrade Option */}
               <div className="bg-[#0f1d40] border border-blue-900/60 rounded-xl p-4 space-y-3.5">
@@ -1327,179 +1605,233 @@ export default function StaffDashboardPage() {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
 
-              {/* SECTION 3: Personal Information */}
-              <div className="bg-[#0f1d40] border border-blue-900/60 rounded-xl p-4 space-y-3">
-                <span className="text-xs font-bold text-cyan-400 uppercase tracking-wider block border-b border-blue-900/40 pb-2">
-                  Personal Information
-                </span>
+              {/* BOTTOM CONTAINER: Left = Applicant Upload Details (2 Rows), Right = Nominee Info & Upload Details */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+                
+                {/* LEFT SIDE DIV: Applicant Upload Details (Row 1: Image, Signature; Row 2: NID 2 images) */}
+                <div className="bg-[#0f1d40] border border-blue-900/60 rounded-xl p-4 sm:p-5 space-y-4 shadow-md">
+                  <div className="flex items-center justify-between border-b border-blue-900/50 pb-2.5">
+                    <span className="text-xs font-extrabold text-cyan-400 uppercase tracking-wider block">
+                      গ্রাহকের আপলোডকৃত ডকুমেন্টস (Applicant Upload Details)
+                    </span>
+                    <span className="text-[10px] text-cyan-300 font-medium bg-blue-950 px-2 py-0.5 rounded border border-blue-800/40">
+                      Click to Enlarge / Change
+                    </span>
+                  </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                  <div>
-                    <span className="text-slate-400 text-[11px] block">পিতার নাম</span>
-                    <span className="font-semibold text-white">{selectedApplicant.personal?.fatherName || '—'}</span>
+                  {/* Row 1: Applicant Photo then Signature */}
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-bold text-slate-300 block">Row 1: গ্রাহকের ছবি ও স্বাক্ষর</span>
+                    <div className="grid grid-cols-2 gap-3">
+                      <AttachmentTile
+                        src={selectedApplicant.personal?.applicantPhoto}
+                        label="গ্রাহকের ছবি (Photo)"
+                        heightClass="h-40"
+                        onOpen={setEnlargedImage}
+                        onUpload={(file) => handleAdminDocumentUpload('applicantPhoto', file, false)}
+                      />
+                      <AttachmentTile
+                        src={selectedApplicant.personal?.signature}
+                        label="গ্রাহকের স্বাক্ষর (Signature)"
+                        heightClass="h-40"
+                        onOpen={setEnlargedImage}
+                        onUpload={(file) => handleAdminDocumentUpload('signature', file, false)}
+                        contain
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-slate-400 text-[11px] block">মাতার নাম</span>
-                    <span className="font-semibold text-white">{selectedApplicant.personal?.motherName || '—'}</span>
+
+                  {/* Row 2: NID Front & NID Back */}
+                  <div className="space-y-1.5 pt-2 border-t border-blue-900/40">
+                    <span className="text-xs font-bold text-slate-300 block">Row 2: গ্রাহকের এনআইডি কার্ড (NID Front & Back)</span>
+                    <div className="grid grid-cols-2 gap-3">
+                      <AttachmentTile
+                        src={selectedApplicant.personal?.nidFront}
+                        label="এনআইডি ফ্রন্ট সাইড (NID Front)"
+                        heightClass="h-40"
+                        onOpen={setEnlargedImage}
+                        onUpload={(file) => handleAdminDocumentUpload('nidFront', file, false)}
+                      />
+                      <AttachmentTile
+                        src={selectedApplicant.personal?.nidBack}
+                        label="এনআইডি ব্যাক সাইড (NID Back)"
+                        heightClass="h-40"
+                        onOpen={setEnlargedImage}
+                        onUpload={(file) => handleAdminDocumentUpload('nidBack', file, false)}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-slate-400 text-[11px] block">এনআইডি নম্বর</span>
-                    <span className="font-mono font-semibold text-white">{selectedApplicant.personal?.nidNumber || '—'}</span>
+                </div>
+
+                {/* RIGHT SIDE DIV: Nominee Information with Upload Details as like Applicant Details */}
+                <div className="bg-[#0f1d40] border border-blue-900/60 rounded-xl p-4 sm:p-5 space-y-4 shadow-md">
+                  <div className="flex items-center justify-between border-b border-blue-900/50 pb-2.5">
+                    <span className="text-xs font-extrabold text-pink-400 uppercase tracking-wider block">
+                      নমিনীর তথ্য ও আপলোডকৃত ডকুমেন্টস (Nominee Information)
+                    </span>
+                    <span className="text-[10px] text-pink-300 font-semibold bg-pink-950/60 px-2 py-0.5 rounded border border-pink-800/40">
+                      Editable
+                    </span>
                   </div>
-                  <div>
-                    <span className="text-slate-400 text-[11px] block">রক্তের গ্রুপ</span>
-                    <span className="font-bold text-rose-400">{selectedApplicant.personal?.bloodGroup || '—'}</span>
+
+                  {/* Nominee Editable Details */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="bg-[#09132c] p-2.5 rounded-lg border border-pink-900/50">
+                      <label className="text-slate-300 text-xs font-bold block mb-1">নমিনীর নাম (Nominee Name)</label>
+                      <input
+                        type="text"
+                        value={editNomineeName}
+                        onChange={(e) => setEditNomineeName(e.target.value)}
+                        className="w-full bg-slate-900/90 border border-pink-800/60 rounded px-2.5 py-1.5 text-white font-bold text-xs focus:outline-none focus:border-pink-400"
+                        placeholder="নমিনীর নাম"
+                      />
+                    </div>
+
+                    <div className="bg-[#09132c] p-2.5 rounded-lg border border-pink-900/50">
+                      <label className="text-slate-300 text-xs font-bold block mb-1">সম্পর্ক (Relationship)</label>
+                      <input
+                        type="text"
+                        value={editNomineeRelationship}
+                        onChange={(e) => setEditNomineeRelationship(e.target.value)}
+                        className="w-full bg-slate-900/90 border border-pink-800/60 rounded px-2.5 py-1.5 text-pink-300 font-semibold text-xs focus:outline-none focus:border-pink-400"
+                        placeholder="যেমন: পিতা/মাতা/স্ত্রী/ভাই"
+                      />
+                    </div>
+
+                    <div className="bg-[#09132c] p-2.5 rounded-lg border border-pink-900/50">
+                      <label className="text-slate-300 text-xs font-bold block mb-1">মোবাইল নম্বর (Phone)</label>
+                      <input
+                        type="text"
+                        value={editNomineePhone}
+                        onChange={(e) => setEditNomineePhone(e.target.value)}
+                        className="w-full bg-slate-900/90 border border-pink-800/60 rounded px-2.5 py-1.5 text-white font-mono text-xs focus:outline-none focus:border-pink-400"
+                        placeholder="মোবাইল নম্বর"
+                      />
+                    </div>
+
+                    <div className="bg-[#09132c] p-2.5 rounded-lg border border-pink-900/50">
+                      <label className="text-slate-300 text-xs font-bold block mb-1">এনআইডি নম্বর (NID)</label>
+                      <input
+                        type="text"
+                        value={editNomineeNid}
+                        onChange={(e) => setEditNomineeNid(e.target.value)}
+                        className="w-full bg-slate-900/90 border border-pink-800/60 rounded px-2.5 py-1.5 text-white font-mono text-xs focus:outline-none focus:border-pink-400"
+                        placeholder="এনআইডি নম্বর"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-slate-400 text-[11px] block">বর্তমান ঠিকানা</span>
-                    <span className="font-medium text-slate-300">{selectedApplicant.personal?.presentAddress || '—'}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 text-[11px] block">স্থায়ী ঠিকানা</span>
-                    <span className="font-medium text-slate-300">{selectedApplicant.personal?.permanentAddress || '—'}</span>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="text-slate-400 text-[11px] block">পেশা</span>
-                    <span className="font-medium text-slate-300">{selectedApplicant.personal?.profession || '—'}</span>
+
+                  {/* Nominee Uploaded Documents */}
+                  <div className="pt-2 border-t border-pink-900/40 space-y-2">
+                    <span className="text-xs font-bold text-pink-300 block">
+                      নমিনীর আপলোডকৃত ফাইলসমূহ (Click to Enlarge / Change):
+                    </span>
+                    <div className="grid grid-cols-3 gap-2.5">
+                      <AttachmentTile
+                        src={selectedApplicant.nominee?.nomineePhoto}
+                        label="নমিনীর ছবি"
+                        heightClass="h-36"
+                        onOpen={setEnlargedImage}
+                        onUpload={(file) => handleAdminDocumentUpload('nomineePhoto', file, true)}
+                      />
+                      <AttachmentTile
+                        src={selectedApplicant.nominee?.nomineeNidFront}
+                        label="এনআইডি ফ্রন্ট"
+                        heightClass="h-36"
+                        onOpen={setEnlargedImage}
+                        onUpload={(file) => handleAdminDocumentUpload('nomineeNidFront', file, true)}
+                      />
+                      <AttachmentTile
+                        src={selectedApplicant.nominee?.nomineeNidBack}
+                        label="এনআইডি ব্যাক"
+                        heightClass="h-36"
+                        onOpen={setEnlargedImage}
+                        onUpload={(file) => handleAdminDocumentUpload('nomineeNidBack', file, true)}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* SECTION 4: Nominee Information & Documents */}
-              <div className="bg-[#0f1d40] border border-blue-900/60 rounded-xl p-4 space-y-3">
+              {/* SECTION: Bank Details (Editable) + Unified Save All Details Button */}
+              <div className="bg-[#0f1d40] border border-blue-900/60 rounded-xl p-4 sm:p-5 space-y-3.5 shadow-md">
                 <div className="flex items-center justify-between border-b border-blue-900/40 pb-2">
-                  <span className="text-xs font-bold text-cyan-400 uppercase tracking-wider block">
-                    Nominee Information & Documents (নমিনীর তথ্য ও আপলোডকৃত ফাইলসমূহ)
+                  <span className="text-xs font-extrabold text-cyan-400 uppercase tracking-wider block">
+                    Bank & Withdrawal Information (ব্যাংক ও উত্তোলন তথ্য)
                   </span>
-                  <span className="text-[10px] text-pink-300 font-semibold bg-pink-950/60 px-2 py-0.5 rounded border border-pink-800/40">
-                    {selectedApplicant.nominee?.relationship || 'Nominee'}
+                  <span className="text-[10px] text-cyan-300 font-semibold bg-blue-950 px-2 py-0.5 rounded border border-blue-800/40">
+                    Editable
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+                  <div className="bg-[#09132c] p-2.5 rounded-lg border border-blue-900/50">
+                    <label className="text-slate-300 text-xs font-bold block mb-1">Account Type / Method</label>
+                    <input
+                      type="text"
+                      value={editBankMethod}
+                      onChange={(e) => setEditBankMethod(e.target.value)}
+                      className="w-full bg-slate-900/90 border border-blue-800/60 rounded px-2.5 py-1.5 text-cyan-300 font-bold text-xs uppercase focus:outline-none focus:border-cyan-400"
+                      placeholder="bKash / Nagad / Bank"
+                    />
+                  </div>
+
+                  <div className="bg-[#09132c] p-2.5 rounded-lg border border-blue-900/50">
+                    <label className="text-slate-300 text-xs font-bold block mb-1">Account Number</label>
+                    <input
+                      type="text"
+                      value={editBankAccountNumber}
+                      onChange={(e) => setEditBankAccountNumber(e.target.value)}
+                      className="w-full bg-slate-900/90 border border-blue-800/60 rounded px-2.5 py-1.5 text-white font-mono font-bold text-xs focus:outline-none focus:border-cyan-400"
+                      placeholder="অ্যাকাউন্ট বা মোবাইল নম্বর"
+                    />
+                  </div>
+
+                  <div className="bg-[#09132c] p-2.5 rounded-lg border border-blue-900/50">
+                    <label className="text-slate-300 text-xs font-bold block mb-1">Bank Name</label>
+                    <input
+                      type="text"
+                      value={editBankName}
+                      onChange={(e) => setEditBankName(e.target.value)}
+                      className="w-full bg-slate-900/90 border border-blue-800/60 rounded px-2.5 py-1.5 text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
+                      placeholder="ব্যাংকের নাম"
+                    />
+                  </div>
+
+                  <div className="bg-[#09132c] p-2.5 rounded-lg border border-blue-900/50">
+                    <label className="text-slate-300 text-xs font-bold block mb-1">Account Holder Name</label>
+                    <input
+                      type="text"
+                      value={editAccountHolderName}
+                      onChange={(e) => setEditAccountHolderName(e.target.value)}
+                      className="w-full bg-slate-900/90 border border-blue-800/60 rounded px-2.5 py-1.5 text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
+                      placeholder="হিসাবধারীর নাম"
+                    />
+                  </div>
+                </div>
+
+                {/* Save All Details Button */}
+                <div className="pt-3 flex flex-wrap items-center justify-between gap-3 border-t border-blue-900/40">
                   <div>
-                    <span className="text-slate-400 text-[11px] block">নমিনীর নাম</span>
-                    <span className="font-semibold text-white">{selectedApplicant.nominee?.nomineeName || '—'}</span>
+                    {applicantSaveSuccess && (
+                      <span className="text-emerald-400 text-xs font-bold flex items-center space-x-1.5">
+                        <CheckCircle size={15} />
+                        <span>{applicantSaveSuccess}</span>
+                      </span>
+                    )}
                   </div>
-                  <div>
-                    <span className="text-slate-400 text-[11px] block">সম্পর্ক</span>
-                    <span className="font-semibold text-pink-400 capitalize">{selectedApplicant.nominee?.relationship || '—'}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 text-[11px] block">মোবাইল নম্বর</span>
-                    <span className="font-mono text-slate-300">{selectedApplicant.nominee?.nomineePhone || '—'}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 text-[11px] block">এনআইডি নম্বর</span>
-                    <span className="font-mono text-slate-300">{selectedApplicant.nominee?.nomineeNid || '—'}</span>
-                  </div>
-                </div>
-
-                {/* Nominee Uploaded Documents */}
-                <div className="pt-2 border-t border-blue-900/30 space-y-2">
-                  <span className="text-[11px] font-bold text-pink-300 block">
-                    নমিনীর আপলোডকৃত ফাইলসমূহ (Nominee Uploaded Documents - Click to Enlarge):
-                  </span>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    <AttachmentTile src={selectedApplicant.nominee?.nomineePhoto} label="নমিনীর ছবি" onOpen={setEnlargedImage} />
-                    <AttachmentTile src={selectedApplicant.nominee?.nomineeNidFront} label="নমিনীর এনআইডি ফ্রন্ট" onOpen={setEnlargedImage} />
-                    <AttachmentTile src={selectedApplicant.nominee?.nomineeNidBack} label="নমিনীর এনআইডি ব্যাক" onOpen={setEnlargedImage} />
-                  </div>
-                </div>
-              </div>
-
-              {/* SECTION 5: Bank & Withdrawal Information */}
-              <div className="bg-[#0f1d40] border border-blue-900/60 rounded-xl p-4 space-y-3">
-                <span className="text-xs font-bold text-cyan-400 uppercase tracking-wider block border-b border-blue-900/40 pb-2">
-                  Bank & Withdrawal Information
-                </span>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                  <div className="bg-[#09132c] p-2.5 rounded-lg border border-blue-900/40">
-                    <span className="text-slate-400 text-[10px] block">Account Type</span>
-                    <span className="font-bold text-cyan-300 uppercase">{selectedApplicant.bank?.method || '—'}</span>
-                  </div>
-                  <div className="bg-[#09132c] p-2.5 rounded-lg border border-blue-900/40">
-                    <span className="text-slate-400 text-[10px] block">Account Number</span>
-                    <span className="font-mono font-bold text-white">{selectedApplicant.bank?.accountNumber || '—'}</span>
-                  </div>
-                  <div className="bg-[#09132c] p-2.5 rounded-lg border border-blue-900/40">
-                    <span className="text-slate-400 text-[10px] block">Bank Name</span>
-                    <span className="font-medium text-slate-300">{selectedApplicant.bank?.bankName || '—'}</span>
-                  </div>
-                  <div className="bg-[#09132c] p-2.5 rounded-lg border border-blue-900/40">
-                    <span className="text-slate-400 text-[10px] block">Account Holder</span>
-                    <span className="font-medium text-slate-300">{selectedApplicant.bank?.accountHolderName || selectedApplicant.applicantName}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* SECTION 6: Attachments & Documents */}
-              <div className="bg-[#0f1d40] border border-blue-900/60 rounded-xl p-4 space-y-4">
-                <span className="text-xs font-bold text-cyan-400 uppercase tracking-wider block border-b border-blue-900/40 pb-2">
-                  All Uploaded Attachments & Documents (Click to Enlarge)
-                </span>
-
-                {/* Applicant's Documents */}
-                <div className="space-y-2">
-                  <span className="text-[11px] font-bold text-blue-300 block">
-                    গ্রাহকের ডকুমেন্টস (Applicant Documents):
-                  </span>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <AttachmentTile
-                      src={selectedApplicant.personal?.nidFront}
-                      label="NID Front Side"
-                      onOpen={setEnlargedImage}
-                      onUpload={(file) => handleAdminDocumentUpload('nidFront', file, false)}
-                    />
-                    <AttachmentTile
-                      src={selectedApplicant.personal?.nidBack}
-                      label="NID Back Side"
-                      onOpen={setEnlargedImage}
-                      onUpload={(file) => handleAdminDocumentUpload('nidBack', file, false)}
-                    />
-                    <AttachmentTile
-                      src={selectedApplicant.personal?.applicantPhoto}
-                      label="গ্রাহকের ছবি"
-                      onOpen={setEnlargedImage}
-                      onUpload={(file) => handleAdminDocumentUpload('applicantPhoto', file, false)}
-                    />
-                    <AttachmentTile
-                      src={selectedApplicant.personal?.signature}
-                      label="স্বাক্ষর"
-                      onOpen={setEnlargedImage}
-                      onUpload={(file) => handleAdminDocumentUpload('signature', file, false)}
-                      contain
-                    />
-                  </div>
-                </div>
-
-                {/* Nominee's Documents */}
-                <div className="space-y-2 pt-2 border-t border-blue-900/40">
-                  <span className="text-[11px] font-bold text-pink-300 block">
-                    নমিনীর ডকুমেন্টস (Nominee Documents):
-                  </span>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    <AttachmentTile
-                      src={selectedApplicant.nominee?.nomineePhoto}
-                      label="নমিনীর ছবি"
-                      onOpen={setEnlargedImage}
-                      onUpload={(file) => handleAdminDocumentUpload('nomineePhoto', file, true)}
-                    />
-                    <AttachmentTile
-                      src={selectedApplicant.nominee?.nomineeNidFront}
-                      label="নমিনীর এনআইডি ফ্রন্ট"
-                      onOpen={setEnlargedImage}
-                      onUpload={(file) => handleAdminDocumentUpload('nomineeNidFront', file, true)}
-                    />
-                    <AttachmentTile
-                      src={selectedApplicant.nominee?.nomineeNidBack}
-                      label="নমিনীর এনআইডি ব্যাক"
-                      onOpen={setEnlargedImage}
-                      onUpload={(file) => handleAdminDocumentUpload('nomineeNidBack', file, true)}
-                    />
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSaveAllApplicantInfo}
+                    disabled={savingApplicantDetails}
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-black text-xs shadow-lg shadow-cyan-900/40 transition-all flex items-center space-x-2"
+                  >
+                    <Save size={15} />
+                    <span>{savingApplicantDetails ? 'সংরক্ষণ হচ্ছে...' : 'সকল এডিটকৃত তথ্য ও ক্রেডেনশিয়াল সংরক্ষণ করুন (Save All Details)'}</span>
+                  </button>
                 </div>
               </div>
 

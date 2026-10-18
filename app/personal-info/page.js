@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import ClientHeader from '@/components/ClientHeader';
 import SignaturePad from '@/components/SignaturePad';
 import ImageUploader from '@/components/ImageUploader';
-import { FileText, User, CreditCard, Droplet, Home, MapPin, Briefcase, Send, PenTool } from 'lucide-react';
+import { FileText, User, CreditCard, Droplet, Home, MapPin, Briefcase, Send, PenTool, ArrowLeft, ArrowRight } from 'lucide-react';
 
 export default function PersonalInfoPage() {
   const router = useRouter();
@@ -344,21 +344,43 @@ export default function PersonalInfoPage() {
             />
           </div>
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center space-x-2 transition-all shadow-md shadow-blue-500/20 disabled:opacity-70 text-sm"
-          >
-            {loading ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            ) : (
-              <>
-                <Send size={16} />
-                <span>আবেদন জমা দিন</span>
-              </>
-            )}
-          </button>
+          {/* Submit & Navigation Buttons */}
+          <div className="space-y-2.5 pt-2">
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center space-x-2 transition-all shadow-md shadow-blue-500/20 disabled:opacity-70 text-sm"
+            >
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <>
+                  <Send size={16} />
+                  <span>আবেদন সংরক্ষণ ও পরবর্তী ধাপ</span>
+                </>
+              )}
+            </button>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => router.push('/dashboard')}
+                className="w-full py-2.5 px-3 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs flex items-center justify-center space-x-1.5 transition-all shadow-sm"
+              >
+                <ArrowLeft size={14} />
+                <span>ড্যাশবোর্ড (Back)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => router.push('/nominee-info')}
+                className="w-full py-2.5 px-3 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs flex items-center justify-center space-x-1.5 transition-all shadow-sm"
+              >
+                <span>নমিনী তথ্য (Next)</span>
+                <ArrowRight size={14} />
+              </button>
+            </div>
+          </div>
         </form>
       </main>
     </div>

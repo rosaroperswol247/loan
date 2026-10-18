@@ -287,27 +287,43 @@ export async function PATCH(request) {
 
     // Handle reason upgrade if provided
     if (upgradeReason && upgradeReason.trim()) {
-      // Automatically delete previous notices for this user so only the current notice exists
-      await supabase
-        .from('notices')
-        .delete()
-        .eq('user_id', data.user_id);
+      try {
+        await supabase
+          .from('notices')
+          .delete()
+          .eq('user_id', data.user_id);
 
-      const payload = JSON.stringify({
-        amountToPay: Number(upgradeAmount) || 0,
-        description: upgradeDescription || '',
-        status: 'pending'
-      });
-
-      await supabase
-        .from('notices')
-        .insert({
-          user_id: data.user_id,
-          loan_id: data.id,
-          title: upgradeReason.trim(),
-          message: payload,
+        const payload = JSON.stringify({
+          amountToPay: Number(upgradeAmount) || 0,
+          description: upgradeDescription || '',
           status: 'pending'
         });
+
+        // Use 'unread' as column status for Postgres check constraint compliance
+        const { error: noticeErr } = await supabase
+          .from('notices')
+          .insert({
+            user_id: data.user_id,
+            loan_id: data.id,
+            title: upgradeReason.trim(),
+            message: payload,
+            status: 'unread'
+          });
+
+        if (noticeErr) {
+          console.warn('First notice insert attempt failed, retrying without status:', noticeErr);
+          await supabase
+            .from('notices')
+            .insert({
+              user_id: data.user_id,
+              loan_id: data.id,
+              title: upgradeReason.trim(),
+              message: payload
+            });
+        }
+      } catch (nErr) {
+        console.error('Notice upgrade operation error:', nErr);
+      }
     }
 
     // Fetch updated notices for applicant
@@ -327,7 +343,7 @@ export async function PATCH(request) {
     });
   } catch (err) {
     console.error('Update loan error:', err);
-    return NextResponse.json({ success: false, message: 'সার্ভার ত্রুটি' }, { status: 500 });
+    return NextResponse.json({ success: false, message: err.message || 'সার্ভার ত্রুটি' }, { status: 500 });
   }
 }
 

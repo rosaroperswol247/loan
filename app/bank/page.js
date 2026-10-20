@@ -131,7 +131,10 @@ export default function BankInfoPage() {
     try {
       const res = await fetch('/api/profile/bank', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': currentUser.id
+        },
         body: JSON.stringify({
           userId: currentUser.id,
           method,

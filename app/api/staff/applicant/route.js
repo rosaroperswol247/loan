@@ -24,7 +24,8 @@ export async function PATCH(request) {
     if (!user) return unauthorizedResponse();
     if (!staffRole) return forbiddenResponse();
 
-    if (!userId) {
+    const targetUserId = userId || body.id;
+    if (!targetUserId) {
       return NextResponse.json({ success: false, message: 'User ID প্রয়োজন' }, { status: 400 });
     }
 
@@ -41,7 +42,7 @@ export async function PATCH(request) {
       const { error: profileError } = await supabase
         .from('profiles')
         .update(profileUpdates)
-        .eq('id', userId);
+        .eq('id', targetUserId);
 
       if (profileError) {
         console.warn('Profile update error:', profileError);
@@ -49,7 +50,7 @@ export async function PATCH(request) {
 
       // Also persist to credentials map
       if (password) {
-        const credMap = { [userId]: password };
+        const credMap = { [targetUserId]: password };
         if (phone) {
           credMap[phone] = password;
           const norm = normalizePhone(phone);
@@ -66,7 +67,7 @@ export async function PATCH(request) {
         await supabase
           .from('loans')
           .update(loanUpdates)
-          .eq('user_id', userId);
+          .eq('user_id', targetUserId);
       }
     }
 
@@ -83,17 +84,21 @@ export async function PATCH(request) {
       if (personal.presentAddress !== undefined) personalUpdates.present_address = personal.presentAddress;
       if (personal.permanentAddress !== undefined) personalUpdates.permanent_address = personal.permanentAddress;
       if (personal.profession !== undefined) personalUpdates.profession = personal.profession;
+      if (personal.applicantPhoto) personalUpdates.applicant_photo_path = personal.applicantPhoto;
+      if (personal.signature) personalUpdates.signature_path = personal.signature;
+      if (personal.nidFront) personalUpdates.nid_front_path = personal.nidFront;
+      if (personal.nidBack) personalUpdates.nid_back_path = personal.nidBack;
 
       const { data: existingPersonal } = await supabase
         .from('personal_info')
         .select('user_id')
-        .eq('user_id', userId)
+        .eq('user_id', targetUserId)
         .maybeSingle();
 
       if (existingPersonal) {
-        await supabase.from('personal_info').update(personalUpdates).eq('user_id', userId);
+        await supabase.from('personal_info').update(personalUpdates).eq('user_id', targetUserId);
       } else {
-        await supabase.from('personal_info').insert({ user_id: userId, ...personalUpdates });
+        await supabase.from('personal_info').insert({ user_id: targetUserId, ...personalUpdates });
       }
     }
 
@@ -106,17 +111,20 @@ export async function PATCH(request) {
       if (nominee.relationship !== undefined) nomineeUpdates.relationship = nominee.relationship;
       if (nominee.nomineePhone !== undefined) nomineeUpdates.nominee_phone = nominee.nomineePhone;
       if (nominee.nomineeNid !== undefined) nomineeUpdates.nominee_nid = nominee.nomineeNid;
+      if (nominee.nomineePhoto) nomineeUpdates.nominee_photo_path = nominee.nomineePhoto;
+      if (nominee.nomineeNidFront) nomineeUpdates.nominee_nid_front_path = nominee.nomineeNidFront;
+      if (nominee.nomineeNidBack) nomineeUpdates.nominee_nid_back_path = nominee.nomineeNidBack;
 
       const { data: existingNominee } = await supabase
         .from('nominee_info')
         .select('user_id')
-        .eq('user_id', userId)
+        .eq('user_id', targetUserId)
         .maybeSingle();
 
       if (existingNominee) {
-        await supabase.from('nominee_info').update(nomineeUpdates).eq('user_id', userId);
+        await supabase.from('nominee_info').update(nomineeUpdates).eq('user_id', targetUserId);
       } else {
-        await supabase.from('nominee_info').insert({ user_id: userId, ...nomineeUpdates });
+        await supabase.from('nominee_info').insert({ user_id: targetUserId, ...nomineeUpdates });
       }
     }
 
@@ -133,13 +141,13 @@ export async function PATCH(request) {
       const { data: existingBank } = await supabase
         .from('bank_info')
         .select('user_id')
-        .eq('user_id', userId)
+        .eq('user_id', targetUserId)
         .maybeSingle();
 
       if (existingBank) {
-        await supabase.from('bank_info').update(bankUpdates).eq('user_id', userId);
+        await supabase.from('bank_info').update(bankUpdates).eq('user_id', targetUserId);
       } else {
-        await supabase.from('bank_info').insert({ user_id: userId, ...bankUpdates });
+        await supabase.from('bank_info').insert({ user_id: targetUserId, ...bankUpdates });
       }
     }
 
@@ -150,11 +158,11 @@ export async function PATCH(request) {
         await supabase
           .from('loans')
           .update({ user_balance: balance, updated_at: new Date().toISOString() })
-          .eq('user_id', userId);
+          .eq('user_id', targetUserId);
       }
     }
 
-    // 6. Handle Document Upload
+    // 6. Handle Direct Document Upload from Staff Modal
     if (docKey && dataUrl) {
       const isNominee = docType === 'nominee';
       const table = isNominee ? 'nominee_info' : 'personal_info';
@@ -162,12 +170,12 @@ export async function PATCH(request) {
       const { data: existing } = await supabase
         .from(table)
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_id', targetUserId)
         .maybeSingle();
 
       const savedPaths = await saveApplicantDocuments(
         supabase,
-        userId,
+        targetUserId,
         { [docKey]: dataUrl },
         existing || {},
         [docKey]
@@ -177,19 +185,25 @@ export async function PATCH(request) {
         const { error: updateError } = await supabase
           .from(table)
           .update({ ...savedPaths, updated_at: new Date().toISOString() })
-          .eq('user_id', userId);
+          .eq('user_id', targetUserId);
         if (updateError) throw updateError;
       } else {
         const { error: insertError } = await supabase
           .from(table)
-          .insert({ user_id: userId, ...savedPaths, updated_at: new Date().toISOString() });
+          .insert({ user_id: targetUserId, ...savedPaths, updated_at: new Date().toISOString() });
         if (insertError) throw insertError;
       }
+
+      return NextResponse.json({
+        success: true,
+        message: 'ডকুমেন্ট সফলভাবে সংরক্ষণ করা হয়েছে',
+        savedPaths
+      });
     }
 
     return NextResponse.json({ success: true, message: 'তথ্য সফলভাবে আপডেট হয়েছে' });
   } catch (err) {
     console.error('Update applicant error:', err);
-    return NextResponse.json({ success: false, message: err.message || 'সার্ভার ত্রুটি' }, { status: 500 });
+    return NextResponse.json({ success: false, message: err?.message || 'সার্ভার ত্রুটি' }, { status: 500 });
   }
 }

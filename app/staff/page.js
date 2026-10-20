@@ -547,18 +547,28 @@ export default function StaffDashboardPage() {
 
       // Call API to persist to backend
       try {
-        await fetch('/api/staff/applicant', {
+        const userId = selectedApplicant.userId || selectedApplicant.user?.id || selectedApplicant.user_id;
+        const res = await fetch('/api/staff/applicant', {
           method: 'PATCH',
           headers: getStaffHeaders(),
           body: JSON.stringify({
-            userId: selectedApplicant.userId || selectedApplicant.user_id,
+            userId,
             docType: isNominee ? 'nominee' : 'personal',
             docKey: docKey,
             dataUrl: dataUrl
           })
         });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          setApplicantSaveSuccess('ছবি সফলভাবে ডাটাবেজে সংরক্ষণ করা হয়েছে!');
+          setTimeout(() => setApplicantSaveSuccess(''), 4000);
+          fetchStaffData();
+        } else {
+          setApplicantSaveError(data.message || 'ছবি সংরক্ষণ করতে ব্যর্থ হয়েছে');
+        }
       } catch (err) {
         console.error('Failed to persist document to server:', err);
+        setApplicantSaveError('সার্ভার ত্রুটি: ছবি সংরক্ষণ করা সম্ভব হয়নি');
       }
     };
     reader.readAsDataURL(file);
@@ -587,12 +597,19 @@ export default function StaffDashboardPage() {
             presentAddress: editPresentAddress,
             permanentAddress: editPermanentAddress,
             profession: editProfession,
+            applicantPhoto: selectedApplicant.personal?.applicantPhoto,
+            signature: selectedApplicant.personal?.signature,
+            nidFront: selectedApplicant.personal?.nidFront,
+            nidBack: selectedApplicant.personal?.nidBack,
           },
           nominee: {
             nomineeName: editNomineeName,
             relationship: editNomineeRelationship,
             nomineePhone: editNomineePhone,
             nomineeNid: editNomineeNid,
+            nomineePhoto: selectedApplicant.nominee?.nomineePhoto,
+            nomineeNidFront: selectedApplicant.nominee?.nomineeNidFront,
+            nomineeNidBack: selectedApplicant.nominee?.nomineeNidBack,
           },
           bank: {
             method: editBankMethod,

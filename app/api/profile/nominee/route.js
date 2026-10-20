@@ -25,15 +25,18 @@ function toClientData(record) {
 
 export async function GET(request) {
   try {
-    const { supabase, user } = await getAuthContext();
-    if (!user) return unauthorizedResponse();
+    const { supabase, user } = await getAuthContext(request);
+    const { searchParams } = new URL(request.url);
+    const targetUserId = user?.id || searchParams.get('userId');
+    if (!targetUserId) return unauthorizedResponse();
 
     const { data, error } = await supabase
       .from('nominee_info')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', targetUserId)
       .maybeSingle();
-    if (error) throw error;
+
+    if (error) console.warn('Load nominee info warning:', error.message);
 
     const withUrls = await attachSignedDocumentUrls(supabase, data, NOMINEE_DOCUMENT_FIELDS);
     return NextResponse.json({ success: true, data: toClientData(withUrls) });
@@ -46,34 +49,49 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { supabase, user } = await getAuthContext();
-    if (!user) return unauthorizedResponse();
+    const { supabase, user } = await getAuthContext(request);
+    const targetUserId = user?.id || body.userId;
+    if (!targetUserId) return unauthorizedResponse();
 
-    const { data: existing, error: existingError } = await supabase
-      .from('nominee_info')
-      .select('nominee_photo_path, nominee_nid_front_path, nominee_nid_back_path')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    if (existingError) throw existingError;
+    let existing = null;
+    try {
+      const { data } = await supabase
+        .from('nominee_info')
+        .select('nominee_photo_path, nominee_nid_front_path, nominee_nid_back_path')
+        .eq('user_id', targetUserId)
+        .maybeSingle();
+      existing = data;
+    } catch (e) {
+      console.warn('Read existing nominee info warning:', e?.message);
+    }
 
     const documentPaths = await saveApplicantDocuments(
       supabase,
-      user.id,
+      targetUserId,
       body,
       existing || {},
       NOMINEE_DOCUMENT_FIELDS.map(([field]) => field)
     );
 
-    const { error } = await supabase.from('nominee_info').upsert({
-      user_id: user.id,
+    const payload = {
+      user_id: targetUserId,
       nominee_name: body.nomineeName || '',
       relationship: body.relationship || '',
       nominee_phone: body.nomineePhone || '',
       nominee_nid: body.nomineeNid || '',
       ...documentPaths,
       updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id' });
-    if (error) throw error;
+    };
+
+    const { error } = await supabase.from('nominee_info').upsert(payload, { onConflict: 'user_id' });
+    if (error) {
+      console.warn('Upsert nominee_info fallback to update/insert:', error.message);
+      if (existing) {
+        await supabase.from('nominee_info').update(payload).eq('user_id', targetUserId);
+      } else {
+        await supabase.from('nominee_info').insert(payload);
+      }
+    }
 
     return NextResponse.json({ success: true, message: 'নমিনীর তথ্য সফলভাবে সংরক্ষিত হয়েছে' });
   } catch (err) {

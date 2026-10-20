@@ -70,7 +70,10 @@ export default function PersonalInfoPage() {
     try {
       const res = await fetch('/api/profile/personal', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': currentUser.id
+        },
         body: JSON.stringify({
           ...formData,
           userId: currentUser.id

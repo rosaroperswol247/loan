@@ -25,13 +25,15 @@ function toClientLoan(loan) {
 
 export async function GET(request) {
   try {
-    const { supabase, user } = await getAuthContext();
-    if (!user) return unauthorizedResponse();
+    const { supabase, user } = await getAuthContext(request);
+    const { searchParams } = new URL(request.url);
+    const targetUserId = user?.id || searchParams.get('userId');
+    if (!targetUserId) return unauthorizedResponse();
 
     const { data, error } = await supabase
       .from('loans')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', targetUserId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -46,22 +48,23 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { purpose, amount, tenureMonths } = body;
-    const { supabase, user, profile } = await getAuthContext();
-    if (!user) return unauthorizedResponse();
+    const { purpose, amount, tenureMonths, userId } = body;
+    const { supabase, user, profile } = await getAuthContext(request);
+    const targetUserId = user?.id || userId;
+    if (!targetUserId) return unauthorizedResponse();
 
     const [personalResult, nomineeResult, bankResult] = await Promise.all([
       supabase.from('personal_info')
         .select('applicant_name, father_name, mother_name, nid_number')
-        .eq('user_id', user.id)
+        .eq('user_id', targetUserId)
         .maybeSingle(),
       supabase.from('nominee_info')
         .select('nominee_name, relationship, nominee_phone')
-        .eq('user_id', user.id)
+        .eq('user_id', targetUserId)
         .maybeSingle(),
       supabase.from('bank_info')
         .select('method, account_number')
-        .eq('user_id', user.id)
+        .eq('user_id', targetUserId)
         .maybeSingle(),
     ]);
 
@@ -119,9 +122,9 @@ export async function POST(request) {
     const { data, error } = await supabase
       .from('loans')
       .insert({
-        user_id: user.id,
-        applicant_name: profile?.fullName || user.user_metadata?.full_name || 'Applicant',
-        phone: profile?.phone || user.phone || '',
+        user_id: targetUserId,
+        applicant_name: profile?.fullName || user?.user_metadata?.full_name || personalResult.data?.applicant_name || 'Applicant',
+        phone: profile?.phone || user?.phone || '',
         purpose: purpose || 'personal-loan',
         amount: numAmount,
         tenure_months: numTenure,

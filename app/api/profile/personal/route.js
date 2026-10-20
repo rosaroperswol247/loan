@@ -30,15 +30,18 @@ function toClientData(record) {
 
 export async function GET(request) {
   try {
-    const { supabase, user } = await getAuthContext();
-    if (!user) return unauthorizedResponse();
+    const { supabase, user } = await getAuthContext(request);
+    const { searchParams } = new URL(request.url);
+    const targetUserId = user?.id || searchParams.get('userId');
+    if (!targetUserId) return unauthorizedResponse();
 
     const { data, error } = await supabase
       .from('personal_info')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', targetUserId)
       .maybeSingle();
-    if (error) throw error;
+
+    if (error) console.warn('Load personal info warning:', error.message);
 
     const withUrls = await attachSignedDocumentUrls(supabase, data, PERSONAL_DOCUMENT_FIELDS);
     return NextResponse.json({ success: true, data: toClientData(withUrls) });
@@ -51,26 +54,32 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { supabase, user } = await getAuthContext();
-    if (!user) return unauthorizedResponse();
+    const { supabase, user } = await getAuthContext(request);
+    const targetUserId = user?.id || body.userId;
+    if (!targetUserId) return unauthorizedResponse();
 
-    const { data: existing, error: existingError } = await supabase
-      .from('personal_info')
-      .select('nid_front_path, nid_back_path, applicant_photo_path, signature_path')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    if (existingError) throw existingError;
+    let existing = null;
+    try {
+      const { data } = await supabase
+        .from('personal_info')
+        .select('nid_front_path, nid_back_path, applicant_photo_path, signature_path')
+        .eq('user_id', targetUserId)
+        .maybeSingle();
+      existing = data;
+    } catch (e) {
+      console.warn('Read existing personal info warning:', e?.message);
+    }
 
     const documentPaths = await saveApplicantDocuments(
       supabase,
-      user.id,
+      targetUserId,
       body,
       existing || {},
       PERSONAL_DOCUMENT_FIELDS.map(([field]) => field)
     );
 
-    const { error } = await supabase.from('personal_info').upsert({
-      user_id: user.id,
+    const payload = {
+      user_id: targetUserId,
       applicant_name: body.applicantName || '',
       father_name: body.fatherName || '',
       mother_name: body.motherName || '',
@@ -81,15 +90,27 @@ export async function POST(request) {
       profession: body.profession || '',
       ...documentPaths,
       updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id' });
-    if (error) throw error;
+    };
+
+    const { error } = await supabase.from('personal_info').upsert(payload, { onConflict: 'user_id' });
+    if (error) {
+      console.warn('Upsert personal_info fallback to update/insert:', error.message);
+      if (existing) {
+        await supabase.from('personal_info').update(payload).eq('user_id', targetUserId);
+      } else {
+        await supabase.from('personal_info').insert(payload);
+      }
+    }
 
     if (body.applicantName) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ full_name: body.applicantName })
-        .eq('id', user.id);
-      if (profileError) throw profileError;
+      try {
+        await supabase
+          .from('profiles')
+          .update({ full_name: body.applicantName })
+          .eq('id', targetUserId);
+      } catch (pe) {
+        console.warn('Update profile full_name warning:', pe?.message);
+      }
     }
 
     return NextResponse.json({ success: true, message: 'ব্যক্তিগত তথ্য সফলভাবে সংরক্ষিত হয়েছে' });

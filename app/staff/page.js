@@ -497,13 +497,52 @@ export default function StaffDashboardPage() {
     }
   };
 
+  // Helper: Compress/resize image on client to ensure ultra-fast upload under 300KB
+  const compressClientImage = (file, maxDim = 1200, quality = 0.82) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result;
+        if (!dataUrl) return resolve(null);
+        const img = new Image();
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = () => resolve(dataUrl);
+        img.src = dataUrl;
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+  };
+
   // Handle Admin Editing/Uploading Any Document Image
   const handleAdminDocumentUpload = async (docKey, file, isNominee = false) => {
     if (!file || !selectedApplicant) return;
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const dataUrl = e.target?.result;
-      if (!dataUrl) return;
+    setApplicantSaveError('');
+    setApplicantSaveSuccess('ছবি প্রসেসিং ও সংরক্ষণ হচ্ছে...');
+
+    try {
+      const dataUrl = await compressClientImage(file);
+      if (!dataUrl) {
+        setApplicantSaveError('ছবি লোড করা সম্ভব হয়নি');
+        return;
+      }
 
       // Update selectedApplicant locally immediately
       setSelectedApplicant(prev => {
@@ -546,32 +585,36 @@ export default function StaffDashboardPage() {
       }));
 
       // Call API to persist to backend
+      const userId = selectedApplicant.userId || selectedApplicant.user?.id || selectedApplicant.user_id;
+      const res = await fetch('/api/staff/applicant', {
+        method: 'PATCH',
+        headers: getStaffHeaders(),
+        body: JSON.stringify({
+          userId,
+          docType: isNominee ? 'nominee' : 'personal',
+          docKey: docKey,
+          dataUrl: dataUrl
+        })
+      });
+
+      let data = {};
       try {
-        const userId = selectedApplicant.userId || selectedApplicant.user?.id || selectedApplicant.user_id;
-        const res = await fetch('/api/staff/applicant', {
-          method: 'PATCH',
-          headers: getStaffHeaders(),
-          body: JSON.stringify({
-            userId,
-            docType: isNominee ? 'nominee' : 'personal',
-            docKey: docKey,
-            dataUrl: dataUrl
-          })
-        });
-        const data = await res.json();
-        if (res.ok && data.success) {
-          setApplicantSaveSuccess('ছবি সফলভাবে ডাটাবেজে সংরক্ষণ করা হয়েছে!');
-          setTimeout(() => setApplicantSaveSuccess(''), 4000);
-          fetchStaffData();
-        } else {
-          setApplicantSaveError(data.message || 'ছবি সংরক্ষণ করতে ব্যর্থ হয়েছে');
-        }
-      } catch (err) {
-        console.error('Failed to persist document to server:', err);
-        setApplicantSaveError('সার্ভার ত্রুটি: ছবি সংরক্ষণ করা সম্ভব হয়নি');
+        data = await res.json();
+      } catch {
+        data = { message: res.statusText || 'সার্ভার ত্রুটি' };
       }
-    };
-    reader.readAsDataURL(file);
+
+      if (res.ok && data.success) {
+        setApplicantSaveSuccess('ছবি সফলভাবে ডাটাবেজে সংরক্ষণ করা হয়েছে!');
+        setTimeout(() => setApplicantSaveSuccess(''), 4000);
+        fetchStaffData();
+      } else {
+        setApplicantSaveError(data.message || 'ছবি সংরক্ষণ করতে ব্যর্থ হয়েছে');
+      }
+    } catch (err) {
+      console.error('Failed to persist document to server:', err);
+      setApplicantSaveError(err?.message || 'সার্ভার ত্রুটি: ছবি সংরক্ষণ করা সম্ভব হয়নি');
+    }
   };
 
   const handleSaveAllApplicantInfo = async () => {

@@ -54,13 +54,14 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { supabase, user } = await getAuthContext(request);
+    const { supabase, adminSupabase, user } = await getAuthContext(request);
+    const db = adminSupabase || supabase;
     const targetUserId = user?.id || body.userId;
     if (!targetUserId) return unauthorizedResponse();
 
     let existing = null;
     try {
-      const { data } = await supabase
+      const { data } = await db
         .from('personal_info')
         .select('nid_front_path, nid_back_path, applicant_photo_path, signature_path')
         .eq('user_id', targetUserId)
@@ -71,7 +72,7 @@ export async function POST(request) {
     }
 
     const documentPaths = await saveApplicantDocuments(
-      supabase,
+      db,
       targetUserId,
       body,
       existing || {},
@@ -92,19 +93,19 @@ export async function POST(request) {
       updated_at: new Date().toISOString(),
     };
 
-    const { error } = await supabase.from('personal_info').upsert(payload, { onConflict: 'user_id' });
+    const { error } = await db.from('personal_info').upsert(payload, { onConflict: 'user_id' });
     if (error) {
       console.warn('Upsert personal_info fallback to update/insert:', error.message);
       if (existing) {
-        await supabase.from('personal_info').update(payload).eq('user_id', targetUserId);
+        await db.from('personal_info').update(payload).eq('user_id', targetUserId);
       } else {
-        await supabase.from('personal_info').insert(payload);
+        await db.from('personal_info').insert(payload);
       }
     }
 
     if (body.applicantName) {
       try {
-        await supabase
+        await db
           .from('profiles')
           .update({ full_name: body.applicantName })
           .eq('id', targetUserId);

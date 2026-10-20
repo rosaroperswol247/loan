@@ -15,8 +15,8 @@ export default function SignaturePad({ onSave, initialSignature }) {
 
     // High resolution canvas
     const ratio = Math.max(window.devicePixelRatio || 1, 1);
-    const width = canvas.offsetWidth;
-    const height = canvas.offsetHeight;
+    const width = canvas.offsetWidth || 350;
+    const height = canvas.offsetHeight || 140;
 
     canvas.width = width * ratio;
     canvas.height = height * ratio;
@@ -29,10 +29,14 @@ export default function SignaturePad({ onSave, initialSignature }) {
 
     if (initialSignature) {
       const img = new Image();
+      img.crossOrigin = 'anonymous';
       img.onload = () => {
-        ctx.drawImage(img, 0, 0, width, height);
-        setHasSignature(true);
+        try {
+          ctx.drawImage(img, 0, 0, width, height);
+          setHasSignature(true);
+        } catch {}
       };
+      img.onerror = () => {};
       img.src = initialSignature;
     }
   }, [initialSignature]);
@@ -43,17 +47,16 @@ export default function SignaturePad({ onSave, initialSignature }) {
     if (e.touches && e.touches[0]) {
       return {
         x: e.touches[0].clientX - rect.left,
-        y: e.touches[0].clientY - rect.top
+        y: e.touches[0].clientY - rect.top,
       };
     }
     return {
       x: e.clientX - rect.left,
-      y: e.clientY - rect.top
+      y: e.clientY - rect.top,
     };
   };
 
   const startDrawing = (e) => {
-    e.preventDefault();
     setIsDrawing(true);
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -64,7 +67,6 @@ export default function SignaturePad({ onSave, initialSignature }) {
 
   const draw = (e) => {
     if (!isDrawing) return;
-    e.preventDefault();
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     const { x, y } = getCoordinates(e);
@@ -77,8 +79,12 @@ export default function SignaturePad({ onSave, initialSignature }) {
     if (!isDrawing) return;
     setIsDrawing(false);
     const canvas = canvasRef.current;
-    if (onSave) {
-      onSave(canvas.toDataURL('image/png'));
+    if (onSave && canvas) {
+      try {
+        onSave(canvas.toDataURL('image/png'));
+      } catch (err) {
+        console.warn('Canvas export failed:', err);
+      }
     }
   };
 

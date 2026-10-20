@@ -61,8 +61,46 @@ export default function PersonalInfoPage() {
     e.preventDefault();
     setError('');
 
-    if (!formData.applicantName || !formData.fatherName || !formData.motherName || !formData.nidNumber) {
-      setError('অনুগ্রহ করে সবগুলো প্রয়োজনীয় ঘর পূরণ করুন');
+    const userId = currentUser?.id || (() => {
+      try {
+        return JSON.parse(localStorage.getItem('loan_user') || '{}')?.id;
+      } catch {
+        return null;
+      }
+    })();
+
+    if (!userId) {
+      setError('আপনার লগইন সেশন পাওয়া যায়নি। অনুগ্রহ করে পুনরায় লগইন করুন।');
+      setTimeout(() => router.push('/login'), 1500);
+      return;
+    }
+
+    if (!formData.applicantName?.trim()) {
+      setError('অনুগ্রহ করে আপনার নাম লিখুন');
+      return;
+    }
+    if (!formData.fatherName?.trim()) {
+      setError('অনুগ্রহ করে পিতার নাম লিখুন');
+      return;
+    }
+    if (!formData.motherName?.trim()) {
+      setError('অনুগ্রহ করে মাতার নাম লিখুন');
+      return;
+    }
+    if (!formData.nidNumber?.trim()) {
+      setError('অনুগ্রহ করে এনআইডি নম্বর লিখুন');
+      return;
+    }
+    if (!formData.presentAddress?.trim()) {
+      setError('অনুগ্রহ করে বর্তমান ঠিকানা লিখুন');
+      return;
+    }
+    if (!formData.permanentAddress?.trim()) {
+      setError('অনুগ্রহ করে স্থায়ী ঠিকানা লিখুন');
+      return;
+    }
+    if (!formData.profession?.trim()) {
+      setError('অনুগ্রহ করে আপনার পেশা লিখুন');
       return;
     }
 
@@ -72,15 +110,21 @@ export default function PersonalInfoPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-id': currentUser.id
+          'x-user-id': userId
         },
         body: JSON.stringify({
           ...formData,
-          userId: currentUser.id
+          userId: userId
         })
       });
 
-      const data = await res.json();
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = { message: res.statusText || 'সার্ভার ত্রুটি' };
+      }
+
       if (!res.ok || !data.success) {
         setError(data.message || 'সংরক্ষণ ব্যর্থ হয়েছে');
         setLoading(false);
@@ -91,7 +135,7 @@ export default function PersonalInfoPage() {
       router.push('/nominee-info');
     } catch (err) {
       console.error(err);
-      setError('সার্ভার সংযোগ ত্রুটি');
+      setError(err?.message || 'সার্ভার সংযোগ ত্রুটি');
       setLoading(false);
     }
   };
@@ -349,13 +393,23 @@ export default function PersonalInfoPage() {
 
           {/* Submit & Navigation Buttons */}
           <div className="space-y-2.5 pt-2">
+            {error && (
+              <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-lg text-red-700 text-xs font-semibold flex items-center space-x-2 animate-shake">
+                <span>⚠️</span>
+                <span>{error}</span>
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={loading}
               className="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center space-x-2 transition-all shadow-md shadow-blue-500/20 disabled:opacity-70 text-sm"
             >
               {loading ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>আবেদন সংরক্ষণ হচ্ছে...</span>
+                </>
               ) : (
                 <>
                   <Send size={16} />

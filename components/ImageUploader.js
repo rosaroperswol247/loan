@@ -1,25 +1,75 @@
 'use client';
 
-import { useState } from 'react';
-import { Upload, X, CheckCircle, Image as ImageIcon } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Upload, X, CheckCircle, Loader2 } from 'lucide-react';
+
+// Client-side image compression to ensure ultra-fast uploads under 300KB
+const compressClientImage = (file, maxDim = 1200, quality = 0.82) => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result;
+      if (!dataUrl) return resolve(null);
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+};
 
 export default function ImageUploader({ label, value, onChange, placeholder = "JPG, PNG (ক্লিক করে আপলোড করুন)" }) {
   const [dragOver, setDragOver] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const processAndUpload = async (file) => {
+    if (!file) return;
+    setProcessing(true);
+    try {
+      const compressedDataUrl = await compressClientImage(file);
+      if (compressedDataUrl) {
+        onChange(compressedDataUrl);
+      }
+    } catch (err) {
+      console.error('Image compression error:', err);
+    } finally {
+      setProcessing(false);
+    }
+  };
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        onChange(event.target.result);
-      };
-      reader.readAsDataURL(file);
+      processAndUpload(file);
     }
   };
 
   const handleRemove = (e) => {
     e.stopPropagation();
     onChange('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   return (
@@ -28,7 +78,12 @@ export default function ImageUploader({ label, value, onChange, placeholder = "J
         {label}
       </label>
 
-      {value ? (
+      {processing ? (
+        <div className="border border-blue-200 rounded-lg p-4 bg-blue-50/50 flex items-center justify-center space-x-2 text-blue-600 text-xs font-medium">
+          <Loader2 size={16} className="animate-spin" />
+          <span>ছবি সাইজ প্রস্তুত করা হচ্ছে...</span>
+        </div>
+      ) : value ? (
         <div className="relative border border-slate-200 rounded-lg overflow-hidden bg-slate-50 p-2 flex items-center justify-between">
           <div className="flex items-center space-x-3 overflow-hidden">
             <div className="w-14 h-14 rounded-md border border-slate-200 bg-white overflow-hidden flex-shrink-0 flex items-center justify-center">
@@ -62,9 +117,7 @@ export default function ImageUploader({ label, value, onChange, placeholder = "J
             setDragOver(false);
             const file = e.dataTransfer.files?.[0];
             if (file) {
-              const reader = new FileReader();
-              reader.onload = (ev) => onChange(ev.target.result);
-              reader.readAsDataURL(file);
+              processAndUpload(file);
             }
           }}
           className={`cursor-pointer border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center transition-all ${
@@ -77,6 +130,7 @@ export default function ImageUploader({ label, value, onChange, placeholder = "J
           <p className="text-xs font-semibold text-slate-700 text-center">{label}</p>
           <p className="text-[11px] text-slate-400 text-center mt-0.5">{placeholder}</p>
           <input
+            ref={fileInputRef}
             type="file"
             accept="image/*"
             onChange={handleFileChange}

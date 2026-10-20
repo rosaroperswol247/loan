@@ -127,16 +127,30 @@ export default function BankInfoPage() {
       return;
     }
 
+    const userId = currentUser?.id || (() => {
+      try {
+        return JSON.parse(localStorage.getItem('loan_user') || '{}')?.id;
+      } catch {
+        return null;
+      }
+    })();
+
+    if (!userId) {
+      setError('আপনার লগইন সেশন পাওয়া যায়নি। অনুগ্রহ করে পুনরায় লগইন করুন।');
+      setTimeout(() => router.push('/login'), 1500);
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch('/api/profile/bank', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-id': currentUser.id
+          'x-user-id': userId
         },
         body: JSON.stringify({
-          userId: currentUser.id,
+          userId: userId,
           method,
           accountNumber: accountNumber.trim(),
           bankName: method === 'bank' ? bankName : getMethodName(method),

@@ -39,7 +39,8 @@ export async function POST(request) {
   try {
     const body = await request.json();
     const { method, accountNumber, bankName, accountHolderName, userId } = body;
-    const { supabase, user, profile } = await getAuthContext(request);
+    const { supabase, adminSupabase, user, profile } = await getAuthContext(request);
+    const db = adminSupabase || supabase;
     const targetUserId = user?.id || userId;
     if (!targetUserId) return unauthorizedResponse();
 
@@ -56,10 +57,10 @@ export async function POST(request) {
       updated_at: new Date().toISOString(),
     };
 
-    const { data, error } = await supabase.from('bank_info').upsert(payload, { onConflict: 'user_id' }).select('*').maybeSingle();
+    const { data, error } = await db.from('bank_info').upsert(payload, { onConflict: 'user_id' }).select('*').maybeSingle();
     if (error) {
       console.warn('Bank info upsert fallback to update/insert:', error.message);
-      await supabase.from('bank_info').update(payload).eq('user_id', targetUserId);
+      await db.from('bank_info').update(payload).eq('user_id', targetUserId);
     }
 
     return NextResponse.json({

@@ -116,6 +116,7 @@ function getDateDigits(dateStr) {
 export default function DocumentGenerator({ applicantData, onClose, onSave }) {
   const [savingToDb, setSavingToDb] = useState(false);
   const [processingSignature, setProcessingSignature] = useState(false);
+  const [processingAuthoritySig, setProcessingAuthoritySig] = useState(false);
   const [processingPhoto, setProcessingPhoto] = useState(false);
   const [dbSaveSuccess, setDbSaveSuccess] = useState('');
   const [dbSaveError, setDbSaveError] = useState('');
@@ -164,7 +165,9 @@ export default function DocumentGenerator({ applicantData, onClose, onSave }) {
     processingFees: initialFees, // Processing Fee specifically requested in Video 3!
     photoUrl: userPhoto,
     signatureUrl: userSignature,
-    officerName: 'Md Hannan Mia',
+    officerName: applicantData?.officerName || 'Md Hannan Mia',
+    officerTitle: applicantData?.officerTitle || 'Principal Loan Officer',
+    authoritySignatureUrl: applicantData?.authoritySignatureUrl || '/documents/sig_officer.png',
     date: todayStr,
     receiptNumber: 'AFB-0058',
     paymentMethod: applicantData?.bank?.method || 'bKash',
@@ -206,6 +209,23 @@ export default function DocumentGenerator({ applicantData, onClose, onSave }) {
       monthlyEmi: emi
     }));
   }, [applicantData]);
+
+  // Fetch live bank authority signature & details
+  useEffect(() => {
+    fetch('/api/settings/authority', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(res => {
+        if (res.success && res.authority) {
+          setDocFields(prev => ({
+            ...prev,
+            officerName: prev.officerName && prev.officerName !== 'Md Hannan Mia' ? prev.officerName : (res.authority.officerName || 'Md Hannan Mia'),
+            officerTitle: prev.officerTitle && prev.officerTitle !== 'Principal Loan Officer' ? prev.officerTitle : (res.authority.officerTitle || 'Principal Loan Officer'),
+            authoritySignatureUrl: res.authority.signatureUrl || prev.authoritySignatureUrl || '/documents/sig_officer.png'
+          }));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleInterestRateChange = (newRate) => {
     const rateNum = parseFloat(newRate);
@@ -448,6 +468,73 @@ export default function DocumentGenerator({ applicantData, onClose, onSave }) {
 
     if (onSave) {
       onSave({ ...docFields, signatureUrl: '' });
+    }
+  };
+
+  const handleAuthoritySignatureUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setProcessingAuthoritySig(true);
+    setDbSaveError('');
+    setDbSaveSuccess('ব্যাংক কর্তৃপক্ষের স্বাক্ষর ব্যাকগ্রাউন্ড রিমুভ ও প্রসেসিং হচ্ছে...');
+
+    try {
+      const processedPng = await processSignatureImage(file);
+      if (!processedPng) {
+        setDbSaveError('স্বাক্ষর প্রসেস করা সম্ভব হয়নি');
+        return;
+      }
+
+      setDocFields(prev => ({ ...prev, authoritySignatureUrl: processedPng }));
+
+      const staffHeaders = { 'Content-Type': 'application/json' };
+      const sessionStr = typeof window !== 'undefined' ? localStorage.getItem('staff_session') : null;
+      if (sessionStr) staffHeaders['x-staff-session'] = sessionStr;
+
+      const res = await fetch('/api/settings/authority', {
+        method: 'POST',
+        headers: staffHeaders,
+        body: JSON.stringify({
+          officerName: docFields.officerName || 'Md Hannan Mia',
+          officerTitle: docFields.officerTitle || 'Principal Loan Officer',
+          signatureUrl: processedPng
+        })
+      });
+
+      if (res.ok) {
+        setDbSaveSuccess('ব্যাংক কর্তৃপক্ষের নতুন স্বাক্ষর সকল ডকুমেন্টে স্থায়ীভাবে যুক্ত হয়েছে!');
+        setTimeout(() => setDbSaveSuccess(''), 5000);
+      }
+    } catch (err) {
+      console.error('Failed to update authority signature:', err);
+      setDbSaveError('ব্যাংক কর্তৃপক্ষের স্বাক্ষর আপডেট ব্যর্থ হয়েছে');
+    } finally {
+      setProcessingAuthoritySig(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleResetAuthoritySig = async () => {
+    setDocFields(prev => ({ ...prev, authoritySignatureUrl: '/documents/sig_officer.png' }));
+    const staffHeaders = { 'Content-Type': 'application/json' };
+    const sessionStr = typeof window !== 'undefined' ? localStorage.getItem('staff_session') : null;
+    if (sessionStr) staffHeaders['x-staff-session'] = sessionStr;
+
+    try {
+      await fetch('/api/settings/authority', {
+        method: 'POST',
+        headers: staffHeaders,
+        body: JSON.stringify({
+          officerName: docFields.officerName || 'Md Hannan Mia',
+          officerTitle: docFields.officerTitle || 'Principal Loan Officer',
+          signatureUrl: '/documents/sig_officer.png'
+        })
+      });
+      setDbSaveSuccess('ব্যাংক কর্তৃপক্ষের স্বাক্ষর ডিফল্ট হিসেবে সেট করা হয়েছে');
+      setTimeout(() => setDbSaveSuccess(''), 4000);
+    } catch (err) {
+      console.warn('Reset authority signature error:', err);
     }
   };
 
@@ -990,6 +1077,95 @@ export default function DocumentGenerator({ applicantData, onClose, onSave }) {
                   </div>
                 </div>
 
+                {/* Bank Authority Signature & Officer Section */}
+                <div className="bg-[#081024] border border-cyan-900/60 rounded-lg p-2.5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-1.5">
+                      <Shield size={13} className="text-cyan-400" />
+                      <span className="text-[10px] text-cyan-300 font-bold">Bank Authority Signature (ব্যাংক স্বাক্ষর)</span>
+                    </div>
+                    <span className="text-[8px] text-cyan-400 bg-cyan-950 px-1.5 py-0.5 rounded border border-cyan-800/40">
+                      সকল ডকুমেন্টে প্রযোজ্য
+                    </span>
+                  </div>
+
+                  {/* Authority Signature Preview Tile */}
+                  <div
+                    className="h-14 rounded flex items-center justify-center p-1 border border-slate-300 shadow-inner relative overflow-hidden"
+                    style={{
+                      backgroundColor: '#ffffff',
+                      backgroundImage: 'linear-gradient(45deg, #f1f5f9 25%, transparent 25%), linear-gradient(-45deg, #f1f5f9 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #f1f5f9 75%), linear-gradient(-45deg, transparent 75%, #f1f5f9 75%)',
+                      backgroundSize: '12px 12px',
+                      backgroundPosition: '0 0, 0 6px, 6px -6px, -6px 0px'
+                    }}
+                  >
+                    <img
+                      src={docFields.authoritySignatureUrl || '/documents/sig_officer.png'}
+                      alt="Bank Authority Signature"
+                      className="max-h-12 max-w-full object-contain mix-blend-multiply select-none"
+                    />
+                  </div>
+
+                  <div className="flex items-center space-x-1.5">
+                    <label
+                      className={`flex-1 cursor-pointer block text-center py-1.5 rounded text-[10px] font-semibold transition-all ${
+                        processingAuthoritySig
+                          ? 'bg-cyan-900 text-cyan-300 opacity-70 pointer-events-none'
+                          : 'bg-cyan-950 hover:bg-cyan-900 border border-cyan-800 text-cyan-200 active:scale-[0.98]'
+                      }`}
+                    >
+                      {processingAuthoritySig ? (
+                        <span className="flex items-center justify-center space-x-1.5">
+                          <Loader2 size={12} className="animate-spin text-cyan-400" />
+                          <span>রিমুভ হচ্ছে...</span>
+                        </span>
+                      ) : (
+                        <span>Change Bank Authority Signature</span>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={processingAuthoritySig}
+                        onChange={handleAuthoritySignatureUpload}
+                        className="hidden"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleResetAuthoritySig}
+                      disabled={processingAuthoritySig}
+                      className="px-2 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded text-slate-300 text-[10px] font-semibold transition-colors disabled:opacity-50"
+                      title="Reset to Default Signature"
+                    >
+                      Reset
+                    </button>
+                  </div>
+
+                  {/* Officer Name & Title Input */}
+                  <div className="grid grid-cols-2 gap-2 pt-1 border-t border-cyan-950">
+                    <div>
+                      <label className="text-slate-400 font-medium block text-[9px] mb-0.5">Officer Name</label>
+                      <input
+                        type="text"
+                        value={docFields.officerName}
+                        onChange={(e) => handleFieldChange('officerName', e.target.value)}
+                        className="w-full bg-[#050b18] border border-cyan-900/50 rounded px-2 py-1 text-xs text-white"
+                        placeholder="Md Hannan Mia"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-slate-400 font-medium block text-[9px] mb-0.5">Officer Title</label>
+                      <input
+                        type="text"
+                        value={docFields.officerTitle || 'Principal Loan Officer'}
+                        onChange={(e) => handleFieldChange('officerTitle', e.target.value)}
+                        className="w-full bg-[#050b18] border border-cyan-900/50 rounded px-2 py-1 text-xs text-white"
+                        placeholder="Principal Loan Officer"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-slate-400 font-medium block mb-1">Account No.</label>
@@ -1214,11 +1390,11 @@ export default function DocumentGenerator({ applicantData, onClose, onSave }) {
                       <div className="pt-3 flex items-end justify-between border-t border-slate-200">
                         <div className="space-y-0.5 text-[10px]">
                           <div className="h-12 sm:h-14 mb-1 flex items-center">
-                            <img src="/documents/sig_officer.png" alt="Signature" className="h-full max-w-[160px] object-contain mix-blend-multiply select-none" />
+                            <img src={docFields.authoritySignatureUrl || "/documents/sig_officer.png"} alt="Signature" className="h-full max-w-[160px] object-contain mix-blend-multiply select-none" />
                           </div>
                           <p className="font-medium text-slate-600">Sincerely,</p>
                           <p className="font-bold text-slate-900">{docFields.officerName || 'Md Hannan Mia'}</p>
-                          <p className="text-slate-600">Principal Loan Officer</p>
+                          <p className="text-slate-600">{docFields.officerTitle || 'Principal Loan Officer'}</p>
                           <p className="text-blue-900 font-semibold">Credit & Microfinance Division, MyBank Bangladesh</p>
                         </div>
 
@@ -1350,7 +1526,7 @@ export default function DocumentGenerator({ applicantData, onClose, onSave }) {
                         <div className="text-center">
                           <div className="border-b-2 border-dotted border-slate-600 px-4 mb-0.5 h-12 sm:h-14 flex items-center justify-center">
                             <img
-                              src="/documents/sig_officer.png" alt="Authorized Signature" className="h-full max-w-[160px] object-contain mix-blend-multiply select-none"
+                              src={docFields.authoritySignatureUrl || "/documents/sig_officer.png"} alt="Authorized Signature" className="h-full max-w-[160px] object-contain mix-blend-multiply select-none"
                             />
                           </div>
                           <span className="text-[10px] font-bold text-slate-700">Authorized Signature</span>
@@ -1462,7 +1638,7 @@ export default function DocumentGenerator({ applicantData, onClose, onSave }) {
                         <div className="text-center">
                           <div className="w-36 border-b border-slate-800 mb-1 h-12 flex items-center justify-center">
                             <img
-                              src="/documents/sig_officer.png" alt="Signature" className="h-full max-w-[150px] object-contain mix-blend-multiply select-none"
+                              src={docFields.authoritySignatureUrl || "/documents/sig_officer.png"} alt="Signature" className="h-full max-w-[150px] object-contain mix-blend-multiply select-none"
                             />
                           </div>
                           <span className="text-[9px] text-slate-600 font-medium">Please Sign Above</span>
@@ -1569,7 +1745,7 @@ export default function DocumentGenerator({ applicantData, onClose, onSave }) {
                           <div className="text-center space-y-1">
                             <div className="w-32 sm:w-44 border-b border-slate-900 pb-0.5 h-12 sm:h-14 flex items-center justify-center">
                               <img
-                                src="/documents/sig_officer.png" alt="Bank Authority Signature" className="h-full max-w-[160px] object-contain mix-blend-multiply select-none"
+                                src={docFields.authoritySignatureUrl || "/documents/sig_officer.png"} alt="Bank Authority Signature" className="h-full max-w-[160px] object-contain mix-blend-multiply select-none"
                               />
                             </div>
                             <span className="text-[9px] sm:text-[10px] font-bold text-slate-900">ব্যাংক কর্তৃপক্ষের স্বাক্ষর</span>
@@ -1669,7 +1845,7 @@ export default function DocumentGenerator({ applicantData, onClose, onSave }) {
                         <div className="text-left space-y-0.5">
                           <div className="w-32 sm:w-44 border-b border-slate-700 pb-0.5 h-12 sm:h-14 flex items-center">
                             <img
-                              src="/documents/sig_officer.png" alt="Signature" className="h-full max-w-[160px] object-contain mix-blend-multiply select-none"
+                              src={docFields.authoritySignatureUrl || "/documents/sig_officer.png"} alt="Signature" className="h-full max-w-[160px] object-contain mix-blend-multiply select-none"
                             />
                           </div>
                           <p className="text-[9px] sm:text-[10px] font-bold text-slate-900">স্বাক্ষরিত</p>

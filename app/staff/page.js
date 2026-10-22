@@ -24,6 +24,7 @@ import {
   ExternalLink,
   X,
   FileCheck,
+  FileSignature,
   Edit,
   ShieldCheck,
   Heart,
@@ -35,7 +36,8 @@ import {
   CheckCircle,
   RefreshCw,
   Upload,
-  Save
+  Save,
+  Loader2
 } from 'lucide-react';
 
 function AttachmentTile({ src, label, onOpen, onUpload, contain, heightClass = 'h-24' }) {
@@ -190,6 +192,17 @@ export default function StaffDashboardPage() {
   const [agentSaving, setAgentSaving] = useState(false);
   const [agentSaveSuccess, setAgentSaveSuccess] = useState('');
 
+  // Bank Authority & Document Signature settings
+  const [authoritySettings, setAuthoritySettings] = useState({
+    officerName: 'Md Hannan Mia',
+    officerTitle: 'Principal Loan Officer',
+    signatureUrl: '/documents/sig_officer.png',
+  });
+  const [authoritySaving, setAuthoritySaving] = useState(false);
+  const [authorityProcessing, setAuthorityProcessing] = useState(false);
+  const [authoritySaveSuccess, setAuthoritySaveSuccess] = useState('');
+  const [authoritySaveError, setAuthoritySaveError] = useState('');
+
   useEffect(() => {
     // Fetch live agent numbers for admin management
     fetch('/api/settings/agent-numbers', { cache: 'no-store' })
@@ -200,6 +213,20 @@ export default function StaffDashboardPage() {
             bkash: res.numbers.bkash || '01318047404',
             nagad: res.numbers.nagad || '01706329691',
             rocket: res.numbers.rocket || '18577394046',
+          });
+        }
+      })
+      .catch(() => {});
+
+    // Fetch live bank authority settings
+    fetch('/api/settings/authority', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(res => {
+        if (res.success && res.authority) {
+          setAuthoritySettings({
+            officerName: res.authority.officerName || 'Md Hannan Mia',
+            officerTitle: res.authority.officerTitle || 'Principal Loan Officer',
+            signatureUrl: res.authority.signatureUrl || '/documents/sig_officer.png',
           });
         }
       })
@@ -907,6 +934,72 @@ export default function StaffDashboardPage() {
     }
   };
 
+  const handleAuthoritySignatureChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setAuthorityProcessing(true);
+    setAuthoritySaveError('');
+    setAuthoritySaveSuccess('স্বাক্ষরের ব্যাকগ্রাউন্ড রিমুভ ও প্রসেসিং হচ্ছে...');
+    try {
+      const processedPng = await processSignatureImage(file);
+      if (processedPng) {
+        setAuthoritySettings(prev => ({ ...prev, signatureUrl: processedPng }));
+        setAuthoritySaveSuccess('স্বাক্ষরের ব্যাকগ্রাউন্ড রিমুভ হয়েছে। সংরক্ষণ করতে "সংরক্ষণ করুন" বাটনে ক্লিক করুন।');
+      }
+    } catch (err) {
+      console.error(err);
+      setAuthoritySaveError('স্বাক্ষর প্রসেস করতে ব্যর্থ হয়েছে');
+    } finally {
+      setAuthorityProcessing(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleSaveAuthoritySettings = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    setAuthoritySaving(true);
+    setAuthoritySaveSuccess('');
+    setAuthoritySaveError('');
+
+    try {
+      const res = await fetch('/api/settings/authority', {
+        method: 'POST',
+        headers: getStaffHeaders(),
+        body: JSON.stringify(authoritySettings),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAuthoritySaveSuccess('ব্যাংক কর্তৃপক্ষের স্বাক্ষর ও তথ্য সফলভাবে আপডেট হয়েছে!');
+        if (data.authority) {
+          setAuthoritySettings({
+            officerName: data.authority.officerName || authoritySettings.officerName,
+            officerTitle: data.authority.officerTitle || authoritySettings.officerTitle,
+            signatureUrl: data.authority.signatureUrl || authoritySettings.signatureUrl,
+          });
+        }
+        setTimeout(() => setAuthoritySaveSuccess(''), 5000);
+      } else {
+        setAuthoritySaveError(data.message || 'সংরক্ষণ ব্যর্থ হয়েছে');
+      }
+    } catch (err) {
+      console.error(err);
+      setAuthoritySaveError('সার্ভার সংযোগ ত্রুটি');
+    } finally {
+      setAuthoritySaving(false);
+    }
+  };
+
+  const handleResetAuthorityToDefault = () => {
+    setAuthoritySettings(prev => ({
+      ...prev,
+      signatureUrl: '/documents/sig_officer.png',
+      officerName: 'Md Hannan Mia',
+      officerTitle: 'Principal Loan Officer'
+    }));
+    setAuthoritySaveSuccess('ডিফল্ট স্বাক্ষরে রিসেট করা হয়েছে। সংরক্ষণ করতে বাটনে ক্লিক করুন।');
+  };
+
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     localStorage.removeItem('staff_session');
@@ -1134,6 +1227,148 @@ export default function StaffDashboardPage() {
                   <CheckCircle2 size={14} />
                 )}
                 <span>{agentSaving ? 'সংরক্ষণ হচ্ছে...' : 'নম্বর পরিবর্তন / আপডেট সংরক্ষণ করুন'}</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Bank Authority & Official Signature Settings Panel */}
+        <div className="bg-[#0f1d40] border border-cyan-900/60 rounded-2xl p-4 sm:p-5 shadow-lg space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-cyan-900/40 gap-2">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-9 h-9 rounded-xl bg-cyan-600/20 border border-cyan-500/40 text-cyan-300 flex items-center justify-center">
+                <FileSignature size={18} />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-white flex items-center space-x-2">
+                  <span>ব্যাংক কর্তৃপক্ষের স্বাক্ষর ও অফিসার সেটিংস (Bank Authority Signature & Officer)</span>
+                  <span className="text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-600/50 px-2 py-0.5 rounded-full font-medium">
+                    সকল ব্যাংক ডকুমেন্টে কার্যকর
+                  </span>
+                </h2>
+                <p className="text-[11px] text-slate-400">
+                  ব্যাংক কর্তৃপক্ষ পরিবর্তন হলে এখানে নতুন স্বাক্ষর ও কর্মকর্তার নাম আপডেট করুন। ডকুমেন্টের চেক, চুক্তিপত্র, রসিদ ও অ্যাপ্রুভাল লেটারে স্বয়ংক্রিয়ভাবে নতুন স্বাক্ষর প্রদর্শিত হবে।
+                </p>
+              </div>
+            </div>
+
+            {authoritySaveSuccess && (
+              <span className="text-xs font-semibold text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-3 py-1 rounded-lg flex items-center space-x-1.5 animate-in fade-in">
+                <CheckCircle size={14} />
+                <span>{authoritySaveSuccess}</span>
+              </span>
+            )}
+            {authoritySaveError && (
+              <span className="text-xs font-semibold text-rose-400 bg-rose-950/80 border border-rose-500/40 px-3 py-1 rounded-lg flex items-center space-x-1.5 animate-in fade-in">
+                <AlertTriangle size={14} />
+                <span>{authoritySaveError}</span>
+              </span>
+            )}
+          </div>
+
+          <form onSubmit={handleSaveAuthoritySettings} className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
+            {/* Officer Name */}
+            <div className="lg:col-span-4 bg-[#09132c] border border-blue-900/50 rounded-xl p-3 space-y-1.5 focus-within:border-cyan-500 transition-all">
+              <label className="text-xs font-bold text-cyan-400 flex items-center space-x-1.5">
+                <User size={13} />
+                <span>অনুমোদিত কর্মকর্তার নাম (Officer Name)</span>
+              </label>
+              <input
+                type="text"
+                value={authoritySettings.officerName}
+                onChange={(e) => setAuthoritySettings(prev => ({ ...prev, officerName: e.target.value }))}
+                placeholder="Md Hannan Mia"
+                className="w-full bg-[#070e24] border border-blue-950 rounded-lg px-3 py-2 text-xs font-bold text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
+              />
+            </div>
+
+            {/* Officer Title */}
+            <div className="lg:col-span-4 bg-[#09132c] border border-blue-900/50 rounded-xl p-3 space-y-1.5 focus-within:border-cyan-500 transition-all">
+              <label className="text-xs font-bold text-cyan-400 flex items-center space-x-1.5">
+                <ShieldCheck size={13} />
+                <span>কর্মকর্তার পদবী (Designation / Title)</span>
+              </label>
+              <input
+                type="text"
+                value={authoritySettings.officerTitle}
+                onChange={(e) => setAuthoritySettings(prev => ({ ...prev, officerTitle: e.target.value }))}
+                placeholder="Principal Loan Officer"
+                className="w-full bg-[#070e24] border border-blue-950 rounded-lg px-3 py-2 text-xs font-bold text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
+              />
+            </div>
+
+            {/* Authority Signature Upload & Preview Tile */}
+            <div className="lg:col-span-4 bg-[#09132c] border border-blue-900/50 rounded-xl p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-cyan-400 flex items-center space-x-1.5">
+                  <FileSignature size={13} />
+                  <span>ব্যাংক কর্তৃপক্ষের স্বাক্ষর (Signature)</span>
+                </label>
+                <span className="text-[9px] text-cyan-300 bg-cyan-950 px-1.5 py-0.5 rounded border border-cyan-800/40">
+                  Auto BG Remove
+                </span>
+              </div>
+
+              <div className="flex items-center space-x-2.5">
+                {/* Visual Preview Tile with Checkerboard Background */}
+                <div
+                  className="w-28 h-12 rounded border border-slate-300 flex items-center justify-center p-1 bg-white shadow-inner flex-shrink-0"
+                  style={{
+                    backgroundImage: 'linear-gradient(45deg, #f1f5f9 25%, transparent 25%), linear-gradient(-45deg, #f1f5f9 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #f1f5f9 75%), linear-gradient(-45deg, transparent 75%, #f1f5f9 75%)',
+                    backgroundSize: '10px 10px',
+                    backgroundPosition: '0 0, 0 5px, 5px -5px, -5px 0px'
+                  }}
+                >
+                  <img
+                    src={authoritySettings.signatureUrl || '/documents/sig_officer.png'}
+                    alt="Authority Signature"
+                    className="max-h-10 max-w-full object-contain mix-blend-multiply select-none"
+                  />
+                </div>
+
+                {/* Upload & Reset Buttons */}
+                <div className="flex-1 flex flex-col space-y-1">
+                  <label className="cursor-pointer px-2.5 py-1.5 bg-cyan-950 hover:bg-cyan-900 border border-cyan-800 text-cyan-200 text-[11px] font-semibold rounded text-center transition-all block">
+                    {authorityProcessing ? (
+                      <span className="flex items-center justify-center space-x-1 text-cyan-300">
+                        <Loader2 size={12} className="animate-spin" />
+                        <span>প্রসেসিং...</span>
+                      </span>
+                    ) : (
+                      <span>স্বাক্ষর পরিবর্তন করুন</span>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={authorityProcessing}
+                      onChange={handleAuthoritySignatureChange}
+                      className="hidden"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleResetAuthorityToDefault}
+                    className="text-[10px] text-slate-400 hover:text-slate-200 underline text-center"
+                  >
+                    ডিফল্ট স্বাক্ষরে রিসেট
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Save Button */}
+            <div className="lg:col-span-12 flex justify-end pt-1">
+              <button
+                type="submit"
+                disabled={authoritySaving}
+                className="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-xl text-xs flex items-center space-x-2 shadow-lg shadow-cyan-900/40 transition-all active:scale-[0.98] disabled:opacity-60"
+              >
+                {authoritySaving ? (
+                  <RefreshCw size={14} className="animate-spin" />
+                ) : (
+                  <CheckCircle2 size={14} />
+                )}
+                <span>{authoritySaving ? 'সংরক্ষণ হচ্ছে...' : 'ব্যাংক কর্তৃপক্ষের স্বাক্ষর ও তথ্য সংরক্ষণ করুন'}</span>
               </button>
             </div>
           </form>
@@ -2353,7 +2588,10 @@ export default function StaffDashboardPage() {
             otherFees: ((Number(editOtherFee) || 0) + (includeReasonUpgrade ? (Number(upgradeAmount) || 0) : 0)),
             processingFees: ((Number(editOtherFee) || 0) + (includeReasonUpgrade ? (Number(upgradeAmount) || 0) : 0)) || 1500,
             totalRepayment: editTotalRepayment !== undefined ? Number(editTotalRepayment) : selectedApplicant.totalRepayment,
-            monthlyEmi: editMonthlyEmi !== undefined ? Number(editMonthlyEmi) : selectedApplicant.monthlyEmi
+            monthlyEmi: editMonthlyEmi !== undefined ? Number(editMonthlyEmi) : selectedApplicant.monthlyEmi,
+            officerName: authoritySettings.officerName,
+            officerTitle: authoritySettings.officerTitle,
+            authoritySignatureUrl: authoritySettings.signatureUrl
           }}
           onClose={() => setShowDocGenerator(false)}
           onSave={(savedFields) => {

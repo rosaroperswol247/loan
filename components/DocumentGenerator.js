@@ -132,6 +132,17 @@ export default function DocumentGenerator({ applicantData, onClose, onSave }) {
     return () => window.removeEventListener('click', handleClickOutside);
   }, []);
 
+  const getStaffHeaders = () => {
+    let session = '';
+    try {
+      session = (typeof window !== 'undefined' ? localStorage.getItem('staff_session') : null) || JSON.stringify({ role: 'staff' });
+    } catch {}
+    return {
+      'Content-Type': 'application/json',
+      'x-staff-session': session
+    };
+  };
+
   const todayStr = new Date().toLocaleDateString('en-GB'); // dd/mm/yyyy
 
   const amount = Number(applicantData?.amount || 50000);
@@ -310,13 +321,9 @@ export default function DocumentGenerator({ applicantData, onClose, onSave }) {
       const userId = applicantData?.userId || applicantData?.user?.id || applicantData?.user_id;
       const loanId = applicantData?.id || applicantData?.loanId;
       if (userId) {
-        const staffHeaders = { 'Content-Type': 'application/json' };
-        const sessionStr = typeof window !== 'undefined' ? localStorage.getItem('staff_session') : null;
-        if (sessionStr) staffHeaders['x-staff-session'] = sessionStr;
-
         const res = await fetch('/api/staff/applicant', {
           method: 'PATCH',
-          headers: staffHeaders,
+          headers: getStaffHeaders(),
           body: JSON.stringify({
             userId,
             loanId,
@@ -326,11 +333,14 @@ export default function DocumentGenerator({ applicantData, onClose, onSave }) {
           })
         });
 
-        if (res.ok) {
+        let resData = {};
+        try { resData = await res.json(); } catch {}
+
+        if (res.ok && resData.success) {
           setDbSaveSuccess('স্বাক্ষরের ব্যাকগ্রাউন্ড সফলভাবে রিমুভ করে ডকুমেন্টে ও ডাটাবেজে স্থায়ীভাবে যুক্ত করা হয়েছে!');
           setTimeout(() => setDbSaveSuccess(''), 5000);
         } else {
-          setDbSaveSuccess('স্বাক্ষর ডকুমেন্টে যুক্ত হয়েছে। নিচে "Save to Database" বাটনে ক্লিক করে স্থায়ী করুন।');
+          setDbSaveError(resData.message || 'স্বাক্ষর ডাটাবেজে সংরক্ষণ সম্ভব হয়নি');
         }
       } else {
         setDbSaveSuccess('স্বাক্ষরের ব্যাকগ্রাউন্ড রিমুভ করে ডকুমেন্টে যুক্ত করা হয়েছে!');
@@ -370,13 +380,9 @@ export default function DocumentGenerator({ applicantData, onClose, onSave }) {
         const userId = applicantData?.userId || applicantData?.user?.id || applicantData?.user_id;
         const loanId = applicantData?.id || applicantData?.loanId;
         if (userId) {
-          const staffHeaders = { 'Content-Type': 'application/json' };
-          const sessionStr = typeof window !== 'undefined' ? localStorage.getItem('staff_session') : null;
-          if (sessionStr) staffHeaders['x-staff-session'] = sessionStr;
-
           await fetch('/api/staff/applicant', {
             method: 'PATCH',
-            headers: staffHeaders,
+            headers: getStaffHeaders(),
             body: JSON.stringify({
               userId,
               loanId,
@@ -411,14 +417,10 @@ export default function DocumentGenerator({ applicantData, onClose, onSave }) {
     const userId = applicantData?.userId || applicantData?.user?.id || applicantData?.user_id;
     const loanId = applicantData?.id || applicantData?.loanId;
     if (userId) {
-      const staffHeaders = { 'Content-Type': 'application/json' };
-      const sessionStr = typeof window !== 'undefined' ? localStorage.getItem('staff_session') : null;
-      if (sessionStr) staffHeaders['x-staff-session'] = sessionStr;
-
       try {
         await fetch('/api/staff/applicant', {
           method: 'PATCH',
-          headers: staffHeaders,
+          headers: getStaffHeaders(),
           body: JSON.stringify({
             userId,
             loanId,
@@ -445,14 +447,10 @@ export default function DocumentGenerator({ applicantData, onClose, onSave }) {
     const userId = applicantData?.userId || applicantData?.user?.id || applicantData?.user_id;
     const loanId = applicantData?.id || applicantData?.loanId;
     if (userId) {
-      const staffHeaders = { 'Content-Type': 'application/json' };
-      const sessionStr = typeof window !== 'undefined' ? localStorage.getItem('staff_session') : null;
-      if (sessionStr) staffHeaders['x-staff-session'] = sessionStr;
-
       try {
         await fetch('/api/staff/applicant', {
           method: 'PATCH',
-          headers: staffHeaders,
+          headers: getStaffHeaders(),
           body: JSON.stringify({
             userId,
             loanId,
@@ -488,13 +486,9 @@ export default function DocumentGenerator({ applicantData, onClose, onSave }) {
 
       setDocFields(prev => ({ ...prev, authoritySignatureUrl: processedPng }));
 
-      const staffHeaders = { 'Content-Type': 'application/json' };
-      const sessionStr = typeof window !== 'undefined' ? localStorage.getItem('staff_session') : null;
-      if (sessionStr) staffHeaders['x-staff-session'] = sessionStr;
-
       const res = await fetch('/api/settings/authority', {
         method: 'POST',
-        headers: staffHeaders,
+        headers: getStaffHeaders(),
         body: JSON.stringify({
           officerName: docFields.officerName || 'Md Hannan Mia',
           officerTitle: docFields.officerTitle || 'Principal Loan Officer',
@@ -502,13 +496,18 @@ export default function DocumentGenerator({ applicantData, onClose, onSave }) {
         })
       });
 
-      if (res.ok) {
+      let resData = {};
+      try { resData = await res.json(); } catch {}
+
+      if (res.ok && resData.success) {
         setDbSaveSuccess('ব্যাংক কর্তৃপক্ষের নতুন স্বাক্ষর সকল ডকুমেন্টে স্থায়ীভাবে যুক্ত হয়েছে!');
         setTimeout(() => setDbSaveSuccess(''), 5000);
+      } else {
+        setDbSaveError(resData.message || 'ব্যাংক কর্তৃপক্ষের স্বাক্ষর সংরক্ষণ ব্যর্থ হয়েছে');
       }
     } catch (err) {
       console.error('Failed to update authority signature:', err);
-      setDbSaveError('ব্যাংক কর্তৃপক্ষের স্বাক্ষর আপডেট ব্যর্থ হয়েছে');
+      setDbSaveError('ব্যাংক কর্তৃপক্ষের স্বাক্ষর আপডেট ব্যর্থ হয়েছে: ' + (err?.message || ''));
     } finally {
       setProcessingAuthoritySig(false);
       e.target.value = '';
@@ -517,14 +516,11 @@ export default function DocumentGenerator({ applicantData, onClose, onSave }) {
 
   const handleResetAuthoritySig = async () => {
     setDocFields(prev => ({ ...prev, authoritySignatureUrl: '/documents/sig_officer.png' }));
-    const staffHeaders = { 'Content-Type': 'application/json' };
-    const sessionStr = typeof window !== 'undefined' ? localStorage.getItem('staff_session') : null;
-    if (sessionStr) staffHeaders['x-staff-session'] = sessionStr;
 
     try {
       await fetch('/api/settings/authority', {
         method: 'POST',
-        headers: staffHeaders,
+        headers: getStaffHeaders(),
         body: JSON.stringify({
           officerName: docFields.officerName || 'Md Hannan Mia',
           officerTitle: docFields.officerTitle || 'Principal Loan Officer',
@@ -620,18 +616,10 @@ export default function DocumentGenerator({ applicantData, onClose, onSave }) {
       const userId = applicantData?.userId || applicantData?.user?.id || applicantData?.user_id;
       const loanId = applicantData?.id || applicantData?.loanId;
 
-      const staffHeaders = {
-        'Content-Type': 'application/json'
-      };
-      const sessionStr = typeof window !== 'undefined' ? localStorage.getItem('staff_session') : null;
-      if (sessionStr) {
-        staffHeaders['x-staff-session'] = sessionStr;
-      }
-
       // 1. Update applicant information
       const res = await fetch('/api/staff/applicant', {
         method: 'PATCH',
-        headers: staffHeaders,
+        headers: getStaffHeaders(),
         body: JSON.stringify({
           userId,
           loanId,
@@ -661,7 +649,7 @@ export default function DocumentGenerator({ applicantData, onClose, onSave }) {
       // 2. Also update loan details directly
       const loanRes = await fetch('/api/staff/loans', {
         method: 'PATCH',
-        headers: staffHeaders,
+        headers: getStaffHeaders(),
         body: JSON.stringify({
           loanId,
           userId,

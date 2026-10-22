@@ -968,7 +968,12 @@ export default function StaffDashboardPage() {
         headers: getStaffHeaders(),
         body: JSON.stringify(authoritySettings),
       });
-      const data = await res.json();
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = { message: res.statusText || 'সার্ভার ত্রুটি' };
+      }
       if (res.ok && data.success) {
         setAuthoritySaveSuccess('ব্যাংক কর্তৃপক্ষের স্বাক্ষর ও তথ্য সফলভাবে আপডেট হয়েছে!');
         if (data.authority) {
@@ -984,7 +989,7 @@ export default function StaffDashboardPage() {
       }
     } catch (err) {
       console.error(err);
-      setAuthoritySaveError('সার্ভার সংযোগ ত্রুটি');
+      setAuthoritySaveError('সার্ভার সংযোগ ত্রুটি: ' + (err?.message || ''));
     } finally {
       setAuthoritySaving(false);
     }

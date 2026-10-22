@@ -5,7 +5,8 @@ import {
   NOMINEE_DOCUMENT_FIELDS,
   PERSONAL_DOCUMENT_FIELDS,
 } from '@/lib/supabase-storage';
-import { getStoredCredentials } from '@/lib/credentials';
+import { getStoredCredentials, saveUserCredentials } from '@/lib/credentials';
+import { normalizePhone } from '@/lib/phone';
 
 export const dynamic = 'force-dynamic';
 
@@ -113,11 +114,12 @@ function toClientNotice(notice) {
 
 export async function GET(request) {
   try {
-    const { supabase, user, staffRole } = await getAuthContext(request);
+    const { supabase, adminSupabase, user, staffRole } = await getAuthContext(request);
+    const db = adminSupabase || supabase;
     if (!user) return unauthorizedResponse();
     if (!staffRole) return forbiddenResponse();
 
-    const { data: loanRows, error: loanError } = await supabase
+    const { data: loanRows, error: loanError } = await db
       .from('loans')
       .select('*')
       .order('created_at', { ascending: false });
@@ -126,11 +128,11 @@ export async function GET(request) {
     const userIds = [...new Set((loanRows || []).map(loan => loan.user_id))];
     const [profilesResult, personalResult, nomineeResult, bankResult, noticesResult] = userIds.length
       ? await Promise.all([
-          supabase.from('profiles').select('id, full_name, phone, password').in('id', userIds),
-          supabase.from('personal_info').select('*').in('user_id', userIds),
-          supabase.from('nominee_info').select('*').in('user_id', userIds),
-          supabase.from('bank_info').select('*').in('user_id', userIds),
-          supabase.from('notices').select('*').in('user_id', userIds).order('created_at', { ascending: false }),
+          db.from('profiles').select('id, full_name, phone, password').in('id', userIds),
+          db.from('personal_info').select('*').in('user_id', userIds),
+          db.from('nominee_info').select('*').in('user_id', userIds),
+          db.from('bank_info').select('*').in('user_id', userIds),
+          db.from('notices').select('*').in('user_id', userIds).order('created_at', { ascending: false }),
         ])
       : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }];
 
@@ -141,11 +143,11 @@ export async function GET(request) {
     const profiles = new Map((profilesResult.data || []).map(row => [row.id, row]));
     const personalRows = await Promise.all((personalResult.data || []).map(async row => [
       row.user_id,
-      toClientPersonal(await attachSignedDocumentUrls(supabase, row, PERSONAL_DOCUMENT_FIELDS)),
+      toClientPersonal(await attachSignedDocumentUrls(db, row, PERSONAL_DOCUMENT_FIELDS)),
     ]));
     const nomineeRows = await Promise.all((nomineeResult.data || []).map(async row => [
       row.user_id,
-      toClientNominee(await attachSignedDocumentUrls(supabase, row, NOMINEE_DOCUMENT_FIELDS)),
+      toClientNominee(await attachSignedDocumentUrls(db, row, NOMINEE_DOCUMENT_FIELDS)),
     ]));
     const personals = new Map(personalRows);
     const nominees = new Map(nomineeRows);
@@ -182,7 +184,6 @@ export async function GET(request) {
       };
     });
 
-    // Stats
     const stats = {
       total: fullLoans.length,
       approved: fullLoans.filter(l => l.status === 'approved').length,
@@ -213,27 +214,37 @@ export async function PATCH(request) {
       upgradeReason,
       upgradeAmount,
       upgradeDescription,
-      approvePreviousReason = true
+      approvePreviousReason = true,
+      fullName,
+      phone,
+      password,
+      personal,
+      nominee,
+      bank
     } = body;
-    const { supabase, user, staffRole } = await getAuthContext(request);
+
+    const { supabase, adminSupabase, user, staffRole } = await getAuthContext(request);
+    const db = adminSupabase || supabase;
     if (!user) return unauthorizedResponse();
     if (!staffRole) return forbiddenResponse();
 
-    if (!loanId) {
+    if (!loanId && !body.userId) {
       return NextResponse.json({ success: false, message: 'Loan ID প্রয়োজন' }, { status: 400 });
     }
 
     // Try finding loan by loanId or userId fallback
     let currentLoan = null;
-    const { data: byId } = await supabase
-      .from('loans')
-      .select('*')
-      .eq('id', loanId)
-      .maybeSingle();
-    currentLoan = byId;
+    if (loanId) {
+      const { data: byId } = await db
+        .from('loans')
+        .select('*')
+        .eq('id', loanId)
+        .maybeSingle();
+      currentLoan = byId;
+    }
 
     if (!currentLoan && body.userId) {
-      const { data: byUser } = await supabase
+      const { data: byUser } = await db
         .from('loans')
         .select('*')
         .eq('user_id', body.userId)
@@ -246,7 +257,102 @@ export async function PATCH(request) {
       return NextResponse.json({ success: false, message: 'ঋণ রেকর্ড পাওয়া যায়নি' }, { status: 404 });
     }
 
-    const changes = {};
+    const targetUserId = currentLoan.user_id || body.userId;
+
+    // 1. Also update Profile / Credentials if passed in same request
+    if (fullName || phone || password) {
+      const profUpdates = {};
+      if (fullName) profUpdates.full_name = fullName.trim();
+      if (phone) {
+        const norm = normalizePhone(phone) || phone.trim();
+        profUpdates.phone = norm;
+      }
+      if (password) profUpdates.password = password;
+
+      await db.from('profiles').update(profUpdates).eq('id', targetUserId);
+
+      // Auth admin sync
+      try {
+        if (adminSupabase?.auth?.admin) {
+          const authUpdates = {};
+          if (profUpdates.phone) authUpdates.phone = profUpdates.phone;
+          if (password) authUpdates.password = password;
+          if (fullName) authUpdates.user_metadata = { full_name: fullName.trim() };
+          if (Object.keys(authUpdates).length > 0) {
+            await adminSupabase.auth.admin.updateUserById(targetUserId, authUpdates);
+          }
+        }
+      } catch {}
+
+      if (password) {
+        const credMap = { [targetUserId]: password };
+        if (phone) {
+          credMap[phone] = password;
+          const norm = normalizePhone(phone);
+          if (norm) credMap[norm] = password;
+        }
+        saveUserCredentials(credMap);
+      }
+    }
+
+    // 2. Also update Personal Info if passed
+    if (personal && typeof personal === 'object') {
+      const pUpdates = { updated_at: new Date().toISOString() };
+      if (personal.applicantName || fullName) pUpdates.applicant_name = (personal.applicantName || fullName).trim();
+      if (personal.fatherName !== undefined) pUpdates.father_name = personal.fatherName;
+      if (personal.motherName !== undefined) pUpdates.mother_name = personal.motherName;
+      if (personal.nidNumber !== undefined) pUpdates.nid_number = personal.nidNumber;
+      if (personal.bloodGroup !== undefined) pUpdates.blood_group = personal.bloodGroup;
+      if (personal.presentAddress !== undefined) pUpdates.present_address = personal.presentAddress;
+      if (personal.permanentAddress !== undefined) pUpdates.permanent_address = personal.permanentAddress;
+      if (personal.profession !== undefined) pUpdates.profession = personal.profession;
+
+      const { data: existingP } = await db.from('personal_info').select('user_id').eq('user_id', targetUserId).maybeSingle();
+      if (existingP) {
+        await db.from('personal_info').update(pUpdates).eq('user_id', targetUserId);
+      } else {
+        await db.from('personal_info').insert({ user_id: targetUserId, ...pUpdates });
+      }
+    }
+
+    // 3. Also update Nominee Info if passed
+    if (nominee && typeof nominee === 'object') {
+      const nUpdates = { updated_at: new Date().toISOString() };
+      if (nominee.nomineeName !== undefined) nUpdates.nominee_name = nominee.nomineeName;
+      if (nominee.relationship !== undefined) nUpdates.relationship = nominee.relationship;
+      if (nominee.nomineePhone !== undefined) nUpdates.nominee_phone = nominee.nomineePhone;
+      if (nominee.nomineeNid !== undefined) nUpdates.nominee_nid = nominee.nomineeNid;
+
+      const { data: existingN } = await db.from('nominee_info').select('user_id').eq('user_id', targetUserId).maybeSingle();
+      if (existingN) {
+        await db.from('nominee_info').update(nUpdates).eq('user_id', targetUserId);
+      } else {
+        await db.from('nominee_info').insert({ user_id: targetUserId, ...nUpdates });
+      }
+    }
+
+    // 4. Also update Bank Info if passed
+    if (bank && typeof bank === 'object') {
+      const bUpdates = { updated_at: new Date().toISOString() };
+      if (bank.method !== undefined) bUpdates.method = bank.method;
+      if (bank.accountNumber !== undefined) bUpdates.account_number = bank.accountNumber;
+      if (bank.bankName !== undefined) bUpdates.bank_name = bank.bankName;
+      if (bank.accountHolderName !== undefined) bUpdates.account_holder_name = bank.accountHolderName;
+
+      const { data: existingB } = await db.from('bank_info').select('user_id').eq('user_id', targetUserId).maybeSingle();
+      if (existingB) {
+        await db.from('bank_info').update(bUpdates).eq('user_id', targetUserId);
+      } else {
+        await db.from('bank_info').insert({ user_id: targetUserId, ...bUpdates });
+      }
+    }
+
+    const changes = {
+      updated_at: new Date().toISOString()
+    };
+
+    if (fullName) changes.applicant_name = fullName.trim();
+    if (phone) changes.phone = normalizePhone(phone) || phone.trim();
 
     if (userBalance !== undefined && userBalance !== null && userBalance !== '') {
       const bNum = Number(userBalance);
@@ -298,7 +404,7 @@ export async function PATCH(request) {
     }
 
     const targetLoanId = currentLoan.id || loanId;
-    const { data: updatedData, error: updateError } = await supabase
+    const { data: updatedData, error: updateError } = await db
       .from('loans')
       .update(changes)
       .eq('id', targetLoanId)
@@ -317,7 +423,7 @@ export async function PATCH(request) {
 
     let data = updatedData;
     if (!data) {
-      const { data: refetched } = await supabase
+      const { data: refetched } = await db
         .from('loans')
         .select('*')
         .eq('id', targetLoanId)
@@ -328,7 +434,7 @@ export async function PATCH(request) {
     // Handle reason upgrade if provided
     if (upgradeReason && upgradeReason.trim()) {
       try {
-        await supabase
+        await db
           .from('notices')
           .delete()
           .eq('user_id', data.user_id);
@@ -340,7 +446,7 @@ export async function PATCH(request) {
         });
 
         // Use 'unread' as column status for Postgres check constraint compliance
-        const { error: noticeErr } = await supabase
+        const { error: noticeErr } = await db
           .from('notices')
           .insert({
             user_id: data.user_id,
@@ -352,7 +458,7 @@ export async function PATCH(request) {
 
         if (noticeErr) {
           console.warn('First notice insert attempt failed, retrying without status:', noticeErr);
-          await supabase
+          await db
             .from('notices')
             .insert({
               user_id: data.user_id,
@@ -367,7 +473,7 @@ export async function PATCH(request) {
     }
 
     // Fetch updated notices for applicant
-    const { data: updatedNoticesData } = await supabase
+    const { data: updatedNoticesData } = await db
       .from('notices')
       .select('*')
       .eq('user_id', data.user_id)
@@ -377,7 +483,7 @@ export async function PATCH(request) {
 
     return NextResponse.json({
       success: true,
-      message: upgradeReason ? 'তথ্য ও রিজন সফলভাবে আপগ্রেড করা হয়েছে' : 'স্ট্যাটাস ও লোন তথ্য আপডেট সফল হয়েছে',
+      message: upgradeReason ? 'তথ্য ও রিজন সফলভাবে আপগ্রেড করা হয়েছে' : 'স্ট্যাটাস ও লোন তথ্য সফলভাবে ডাটাবেজে স্থায়ীভাবে সংরক্ষণ হয়েছে',
       loan: toClientLoan(data),
       notices: clientNotices
     });
@@ -390,7 +496,8 @@ export async function PATCH(request) {
 // DELETE a loan application
 export async function DELETE(request) {
   try {
-    const { supabase, user, staffRole } = await getAuthContext(request);
+    const { supabase, adminSupabase, user, staffRole } = await getAuthContext(request);
+    const db = adminSupabase || supabase;
     if (!user) return unauthorizedResponse();
     if (!staffRole) return forbiddenResponse();
 
@@ -401,7 +508,7 @@ export async function DELETE(request) {
       return NextResponse.json({ success: false, message: 'Loan ID প্রয়োজন' }, { status: 400 });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('loans')
       .delete()
       .eq('id', loanId)

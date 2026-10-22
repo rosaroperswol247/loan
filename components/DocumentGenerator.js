@@ -20,7 +20,9 @@ import {
   Copy,
   Check,
   FileText,
-  Download
+  Download,
+  Save,
+  AlertTriangle
 } from 'lucide-react';
 
 function toWordsBDT(num) {
@@ -109,7 +111,10 @@ function getDateDigits(dateStr) {
   return arr;
 }
 
-export default function DocumentGenerator({ applicantData, onClose }) {
+export default function DocumentGenerator({ applicantData, onClose, onSave }) {
+  const [savingToDb, setSavingToDb] = useState(false);
+  const [dbSaveSuccess, setDbSaveSuccess] = useState('');
+  const [dbSaveError, setDbSaveError] = useState('');
   const [selectedDoc, setSelectedDoc] = useState('approval');
   const [copying, setCopying] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
@@ -353,6 +358,89 @@ export default function DocumentGenerator({ applicantData, onClose }) {
       console.error('Failed to copy document:', err);
     } finally {
       setCopying(false);
+    }
+  };
+
+  const handleSaveToDatabase = async () => {
+    setSavingToDb(true);
+    setDbSaveSuccess('');
+    setDbSaveError('');
+    try {
+      const userId = applicantData?.userId || applicantData?.user?.id || applicantData?.user_id;
+      const loanId = applicantData?.id || applicantData?.loanId;
+
+      const staffHeaders = {
+        'Content-Type': 'application/json'
+      };
+      const sessionStr = typeof window !== 'undefined' ? localStorage.getItem('staff_session') : null;
+      if (sessionStr) {
+        staffHeaders['x-staff-session'] = sessionStr;
+      }
+
+      // 1. Update applicant information
+      const res = await fetch('/api/staff/applicant', {
+        method: 'PATCH',
+        headers: staffHeaders,
+        body: JSON.stringify({
+          userId,
+          loanId,
+          fullName: docFields.name,
+          personal: {
+            applicantName: docFields.name,
+            fatherName: docFields.fatherName,
+            motherName: docFields.motherName,
+            nidNumber: docFields.nid,
+            presentAddress: docFields.address,
+            permanentAddress: docFields.address,
+            applicantPhoto: docFields.photoUrl?.startsWith('data:') ? docFields.photoUrl : undefined,
+            signature: docFields.signatureUrl?.startsWith('data:') ? docFields.signatureUrl : undefined,
+          },
+          bank: {
+            accountNumber: docFields.accountNumber,
+            bankName: docFields.branch ? `Bank (${docFields.branch})` : undefined
+          },
+          amount: Number(docFields.loanAmount),
+          tenureMonths: Number(docFields.tenureMonths),
+          interestRate: Number(docFields.interestRate),
+          monthlyEmi: Number(docFields.monthlyEmi),
+          totalRepayment: Number(docFields.totalRepayment)
+        })
+      });
+
+      // 2. Also update loan details directly
+      const loanRes = await fetch('/api/staff/loans', {
+        method: 'PATCH',
+        headers: staffHeaders,
+        body: JSON.stringify({
+          loanId,
+          userId,
+          fullName: docFields.name,
+          amount: Number(docFields.loanAmount),
+          tenureMonths: Number(docFields.tenureMonths),
+          interestRate: Number(docFields.interestRate),
+          otherFees: Number(docFields.processingFees) || 0,
+          monthlyEmi: Number(docFields.monthlyEmi),
+          totalRepayment: Number(docFields.totalRepayment)
+        })
+      });
+
+      const resData = await res.json();
+      const loanData = await loanRes.json();
+
+      if (res.ok && loanRes.ok) {
+        setDbSaveSuccess('সকল ডকুমেন্টের তথ্য সফলভাবে ডাটাবেজে স্থায়ীভাবে সংরক্ষিত হয়েছে!');
+        setTimeout(() => setDbSaveSuccess(''), 5000);
+        if (onSave) {
+          onSave(docFields);
+        }
+      } else {
+        setDbSaveError(resData.message || loanData.message || 'ডাটাবেজে সংরক্ষণ ব্যর্থ হয়েছে');
+      }
+    } catch (err) {
+      console.error(err);
+      setDbSaveError('সার্ভার সংযোগ ত্রুটি: তথ্য সংরক্ষণ সম্ভব হয়নি');
+    } finally {
+      setSavingToDb(false);
     }
   };
 
@@ -733,6 +821,30 @@ export default function DocumentGenerator({ applicantData, onClose }) {
                   <Sparkles size={15} />
                   <span>Update Live Preview</span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={handleSaveToDatabase}
+                  disabled={savingToDb}
+                  className="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-extrabold py-2.5 px-4 rounded-xl flex items-center justify-center space-x-2 shadow-lg shadow-emerald-950/40 transition-all mt-2.5 border border-emerald-400/40 disabled:opacity-60"
+                >
+                  <Save size={15} />
+                  <span>{savingToDb ? 'ডাটাবেজে সংরক্ষণ হচ্ছে...' : '💾 এডিটকৃত তথ্য ডাটাবেজে সেভ করুন (Save to Database)'}</span>
+                </button>
+
+                {dbSaveSuccess && (
+                  <div className="p-2.5 bg-emerald-950/90 border border-emerald-500/60 rounded-lg text-emerald-300 text-xs font-bold flex items-center space-x-2 shadow-md">
+                    <Check size={15} />
+                    <span>{dbSaveSuccess}</span>
+                  </div>
+                )}
+
+                {dbSaveError && (
+                  <div className="p-2.5 bg-red-950/90 border border-red-500/60 rounded-lg text-red-300 text-xs font-bold flex items-center space-x-2 shadow-md">
+                    <AlertTriangle size={15} />
+                    <span>{dbSaveError}</span>
+                  </div>
+                )}
               </div>
             </div>
 

@@ -660,7 +660,15 @@ export default function StaffDashboardPage() {
             bankName: editBankName,
             accountHolderName: editAccountHolderName,
           },
-          userBalance: Number(editBalance) || 0
+          userBalance: Number(editBalance) || 0,
+          loanId: selectedApplicant.id,
+          amount: Number(editAmount),
+          tenureMonths: Number(editTenureMonths),
+          interestRate: Number(editInterestRate),
+          status: editStatus,
+          otherFees: Number(editOtherFee) || 0,
+          totalRepayment: Number(editTotalRepayment),
+          monthlyEmi: Number(editMonthlyEmi)
         })
       });
 
@@ -767,6 +775,31 @@ export default function StaffDashboardPage() {
 
     const body = {
       loanId: selectedApplicant.id,
+      userId: selectedApplicant.userId || selectedApplicant.user?.id || selectedApplicant.user_id,
+      fullName: editFullName,
+      phone: editPhone,
+      password: editPassword,
+      personal: {
+        fatherName: editFatherName,
+        motherName: editMotherName,
+        nidNumber: editNidNumber,
+        bloodGroup: editBloodGroup,
+        presentAddress: editPresentAddress,
+        permanentAddress: editPermanentAddress,
+        profession: editProfession,
+      },
+      nominee: {
+        nomineeName: editNomineeName,
+        relationship: editNomineeRelationship,
+        nomineePhone: editNomineePhone,
+        nomineeNid: editNomineeNid,
+      },
+      bank: {
+        method: editBankMethod,
+        accountNumber: editBankAccountNumber,
+        bankName: editBankName,
+        accountHolderName: editAccountHolderName,
+      },
       status: editStatus,
       userBalance: Number(editBalance),
       interestRate: Number(editInterestRate),
@@ -1401,6 +1434,18 @@ export default function StaffDashboardPage() {
                         />
                       </div>
                     </div>
+                    <div className="pt-3.5 border-t border-blue-900/40 flex items-center justify-between">
+                      <span className="text-[11px] text-slate-400">ব্যক্তিগত তথ্যে পরিবর্তন করলে সেভ করুন:</span>
+                      <button
+                        type="button"
+                        onClick={handleSaveAllApplicantInfo}
+                        disabled={savingApplicantDetails}
+                        className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center space-x-1.5 transition-all shadow-md disabled:opacity-50"
+                      >
+                        <Save size={13} />
+                        <span>{savingApplicantDetails ? 'সেভ হচ্ছে...' : 'ব্যক্তিগত তথ্য সেভ করুন'}</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -1455,6 +1500,18 @@ export default function StaffDashboardPage() {
                           className="mt-1 bg-slate-900/90 border border-amber-700/60 rounded px-2.5 py-1 text-amber-300 font-mono font-bold text-xs focus:outline-none focus:border-amber-400"
                         />
                       </div>
+                    </div>
+                    <div className="pt-2.5 border-t border-blue-900/40 flex items-center justify-between">
+                      <span className="text-[11px] text-amber-300/80">ফোন ও পাসওয়ার্ড পরিবর্তন করলে সেভ করুন:</span>
+                      <button
+                        type="button"
+                        onClick={handleSaveAllApplicantInfo}
+                        disabled={savingApplicantDetails}
+                        className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs flex items-center space-x-1.5 transition-all shadow-md disabled:opacity-50"
+                      >
+                        <Save size={13} />
+                        <span>{savingApplicantDetails ? 'সেভ হচ্ছে...' : 'লগইন তথ্য ও ফোন নম্বর সেভ করুন'}</span>
+                      </button>
                     </div>
                   </div>
 
@@ -1891,6 +1948,18 @@ export default function StaffDashboardPage() {
                       />
                     </div>
                   </div>
+                  <div className="pt-2.5 border-t border-pink-900/40 flex items-center justify-between">
+                    <span className="text-[11px] text-pink-300/80">নমিনী তথ্যে পরিবর্তন করলে সেভ করুন:</span>
+                    <button
+                      type="button"
+                      onClick={handleSaveAllApplicantInfo}
+                      disabled={savingApplicantDetails}
+                      className="px-3.5 py-1.5 rounded-lg bg-pink-600 hover:bg-pink-500 text-white font-bold text-xs flex items-center space-x-1.5 transition-all shadow-md disabled:opacity-50"
+                    >
+                      <Save size={13} />
+                      <span>{savingApplicantDetails ? 'সেভ হচ্ছে...' : 'নমিনী তথ্য সেভ করুন'}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -2281,6 +2350,25 @@ export default function StaffDashboardPage() {
             monthlyEmi: editMonthlyEmi !== undefined ? Number(editMonthlyEmi) : selectedApplicant.monthlyEmi
           }}
           onClose={() => setShowDocGenerator(false)}
+          onSave={(savedFields) => {
+            fetchStaffData();
+            if (savedFields) {
+              if (savedFields.name) setEditFullName(savedFields.name);
+              if (savedFields.fatherName) setEditFatherName(savedFields.fatherName);
+              if (savedFields.motherName) setEditMotherName(savedFields.motherName);
+              if (savedFields.nid) setEditNidNumber(savedFields.nid);
+              if (savedFields.address) {
+                setEditPresentAddress(savedFields.address);
+                setEditPermanentAddress(savedFields.address);
+              }
+              if (savedFields.loanAmount) setEditAmount(savedFields.loanAmount);
+              if (savedFields.tenureMonths) setEditTenureMonths(savedFields.tenureMonths);
+              if (savedFields.interestRate) setEditInterestRate(savedFields.interestRate);
+              if (savedFields.monthlyEmi) setEditMonthlyEmi(savedFields.monthlyEmi);
+              if (savedFields.totalRepayment) setEditTotalRepayment(savedFields.totalRepayment);
+              if (savedFields.accountNumber) setEditBankAccountNumber(savedFields.accountNumber);
+            }
+          }}
         />
       )}
 

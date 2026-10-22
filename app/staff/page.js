@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import DocumentGenerator from '@/components/DocumentGenerator';
+import { processSignatureImage } from '@/lib/signature-processor';
 import {
   Landmark,
   Search,
@@ -535,10 +536,15 @@ export default function StaffDashboardPage() {
   const handleAdminDocumentUpload = async (docKey, file, isNominee = false) => {
     if (!file || !selectedApplicant) return;
     setApplicantSaveError('');
-    setApplicantSaveSuccess('ছবি প্রসেসিং ও সংরক্ষণ হচ্ছে...');
+    setApplicantSaveSuccess(docKey === 'signature' ? 'স্বাক্ষরের ব্যাকগ্রাউন্ড রিমুভ ও সংরক্ষণ হচ্ছে...' : 'ছবি প্রসেসিং ও সংরক্ষণ হচ্ছে...');
 
     try {
-      const dataUrl = await compressClientImage(file);
+      let dataUrl;
+      if (docKey === 'signature') {
+        dataUrl = await processSignatureImage(file);
+      } else {
+        dataUrl = await compressClientImage(file);
+      }
       if (!dataUrl) {
         setApplicantSaveError('ছবি লোড করা সম্ভব হয়নি');
         return;
@@ -2353,6 +2359,40 @@ export default function StaffDashboardPage() {
           onSave={(savedFields) => {
             fetchStaffData();
             if (savedFields) {
+              if (savedFields.signatureUrl !== undefined) {
+                setSelectedApplicant(prev => prev ? ({
+                  ...prev,
+                  personal: { ...(prev.personal || {}), signature: savedFields.signatureUrl },
+                  signature: savedFields.signatureUrl
+                }) : prev);
+                setLoans(prevLoans => prevLoans.map(loan => {
+                  if (loan.id === selectedApplicant?.id) {
+                    return {
+                      ...loan,
+                      personal: { ...(loan.personal || {}), signature: savedFields.signatureUrl },
+                      signature: savedFields.signatureUrl
+                    };
+                  }
+                  return loan;
+                }));
+              }
+              if (savedFields.photoUrl !== undefined) {
+                setSelectedApplicant(prev => prev ? ({
+                  ...prev,
+                  personal: { ...(prev.personal || {}), applicantPhoto: savedFields.photoUrl },
+                  applicantPhoto: savedFields.photoUrl
+                }) : prev);
+                setLoans(prevLoans => prevLoans.map(loan => {
+                  if (loan.id === selectedApplicant?.id) {
+                    return {
+                      ...loan,
+                      personal: { ...(loan.personal || {}), applicantPhoto: savedFields.photoUrl },
+                      applicantPhoto: savedFields.photoUrl
+                    };
+                  }
+                  return loan;
+                }));
+              }
               if (savedFields.name) setEditFullName(savedFields.name);
               if (savedFields.fatherName) setEditFatherName(savedFields.fatherName);
               if (savedFields.motherName) setEditMotherName(savedFields.motherName);

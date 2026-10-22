@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import html2canvas from 'html2canvas';
+import { processSignatureImage } from '@/lib/signature-processor';
 import {
   FileCheck,
   Receipt,
@@ -22,7 +23,8 @@ import {
   FileText,
   Download,
   Save,
-  AlertTriangle
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
 
 function toWordsBDT(num) {
@@ -113,6 +115,8 @@ function getDateDigits(dateStr) {
 
 export default function DocumentGenerator({ applicantData, onClose, onSave }) {
   const [savingToDb, setSavingToDb] = useState(false);
+  const [processingSignature, setProcessingSignature] = useState(false);
+  const [processingPhoto, setProcessingPhoto] = useState(false);
   const [dbSaveSuccess, setDbSaveSuccess] = useState('');
   const [dbSaveError, setDbSaveError] = useState('');
   const [selectedDoc, setSelectedDoc] = useState('approval');
@@ -255,36 +259,196 @@ export default function DocumentGenerator({ applicantData, onClose, onSave }) {
     }));
   };
 
-  const handleSignatureUpload = (e) => {
+  const handleSignatureUpload = async (e) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setDocFields(prev => ({ ...prev, signatureUrl: event.target?.result }));
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    setProcessingSignature(true);
+    setDbSaveError('');
+    setDbSaveSuccess('স্বাক্ষরের ব্যাকগ্রাউন্ড রিমুভ ও প্রসেসিং হচ্ছে...');
+
+    try {
+      // 1. Process image on client: extract ink strokes and remove white/grey/shadow background
+      const processedPng = await processSignatureImage(file);
+      if (!processedPng) {
+        setDbSaveError('স্বাক্ষর প্রসেস করা সম্ভব হয়নি');
+        return;
+      }
+
+      // 2. Put immediately on active document
+      setDocFields(prev => ({ ...prev, signatureUrl: processedPng }));
+
+      // 3. Keep local applicantData in sync so re-renders won't wipe it
+      if (applicantData?.personal) {
+        applicantData.personal.signature = processedPng;
+      }
+      if (applicantData) {
+        applicantData.signature = processedPng;
+      }
+
+      // 4. Auto-persist directly to database
+      const userId = applicantData?.userId || applicantData?.user?.id || applicantData?.user_id;
+      const loanId = applicantData?.id || applicantData?.loanId;
+      if (userId) {
+        const staffHeaders = { 'Content-Type': 'application/json' };
+        const sessionStr = typeof window !== 'undefined' ? localStorage.getItem('staff_session') : null;
+        if (sessionStr) staffHeaders['x-staff-session'] = sessionStr;
+
+        const res = await fetch('/api/staff/applicant', {
+          method: 'PATCH',
+          headers: staffHeaders,
+          body: JSON.stringify({
+            userId,
+            loanId,
+            docType: 'personal',
+            docKey: 'signature',
+            dataUrl: processedPng
+          })
+        });
+
+        if (res.ok) {
+          setDbSaveSuccess('স্বাক্ষরের ব্যাকগ্রাউন্ড সফলভাবে রিমুভ করে ডকুমেন্টে ও ডাটাবেজে স্থায়ীভাবে যুক্ত করা হয়েছে!');
+          setTimeout(() => setDbSaveSuccess(''), 5000);
+        } else {
+          setDbSaveSuccess('স্বাক্ষর ডকুমেন্টে যুক্ত হয়েছে। নিচে "Save to Database" বাটনে ক্লিক করে স্থায়ী করুন।');
+        }
+      } else {
+        setDbSaveSuccess('স্বাক্ষরের ব্যাকগ্রাউন্ড রিমুভ করে ডকুমেন্টে যুক্ত করা হয়েছে!');
+        setTimeout(() => setDbSaveSuccess(''), 5000);
+      }
+
+      // 5. Notify parent component to sync selectedApplicant
+      if (onSave) {
+        onSave({ ...docFields, signatureUrl: processedPng });
+      }
+    } catch (err) {
+      console.error('Signature processing failed:', err);
+      setDbSaveError('স্বাক্ষর প্রসেসিং এ সমস্যা: ' + (err?.message || ''));
+    } finally {
+      setProcessingSignature(false);
+      e.target.value = '';
     }
-    e.target.value = '';
   };
 
-  const handlePhotoUpload = (e) => {
+  const handlePhotoUpload = async (e) => {
     const file = e.target.files?.[0];
-    if (file) {
+    if (!file) return;
+
+    setProcessingPhoto(true);
+    setDbSaveError('');
+    setDbSaveSuccess('ছবি আপলোড হচ্ছে...');
+
+    try {
       const reader = new FileReader();
-      reader.onload = (event) => {
-        setDocFields(prev => ({ ...prev, photoUrl: event.target?.result }));
+      reader.onload = async (event) => {
+        const dataUrl = event.target?.result;
+        setDocFields(prev => ({ ...prev, photoUrl: dataUrl }));
+
+        if (applicantData?.personal) applicantData.personal.applicantPhoto = dataUrl;
+        if (applicantData) applicantData.applicantPhoto = dataUrl;
+
+        const userId = applicantData?.userId || applicantData?.user?.id || applicantData?.user_id;
+        const loanId = applicantData?.id || applicantData?.loanId;
+        if (userId) {
+          const staffHeaders = { 'Content-Type': 'application/json' };
+          const sessionStr = typeof window !== 'undefined' ? localStorage.getItem('staff_session') : null;
+          if (sessionStr) staffHeaders['x-staff-session'] = sessionStr;
+
+          await fetch('/api/staff/applicant', {
+            method: 'PATCH',
+            headers: staffHeaders,
+            body: JSON.stringify({
+              userId,
+              loanId,
+              docType: 'personal',
+              docKey: 'applicantPhoto',
+              dataUrl: dataUrl
+            })
+          });
+        }
+
+        if (onSave) {
+          onSave({ ...docFields, photoUrl: dataUrl });
+        }
+        setDbSaveSuccess('ছবি সফলভাবে ডকুমেন্টে ও ডাটাবেজে আপডেট হয়েছে!');
+        setTimeout(() => setDbSaveSuccess(''), 4000);
       };
       reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Photo upload failed:', err);
+      setDbSaveError('ছবি আপলোড করতে ব্যর্থ হয়েছে');
+    } finally {
+      setProcessingPhoto(false);
+      e.target.value = '';
     }
-    e.target.value = '';
   };
 
-  const handleRemovePhoto = () => {
+  const handleRemovePhoto = async () => {
     setDocFields(prev => ({ ...prev, photoUrl: '' }));
+    if (applicantData?.personal) applicantData.personal.applicantPhoto = '';
+    if (applicantData) applicantData.applicantPhoto = '';
+
+    const userId = applicantData?.userId || applicantData?.user?.id || applicantData?.user_id;
+    const loanId = applicantData?.id || applicantData?.loanId;
+    if (userId) {
+      const staffHeaders = { 'Content-Type': 'application/json' };
+      const sessionStr = typeof window !== 'undefined' ? localStorage.getItem('staff_session') : null;
+      if (sessionStr) staffHeaders['x-staff-session'] = sessionStr;
+
+      try {
+        await fetch('/api/staff/applicant', {
+          method: 'PATCH',
+          headers: staffHeaders,
+          body: JSON.stringify({
+            userId,
+            loanId,
+            docType: 'personal',
+            docKey: 'applicantPhoto',
+            dataUrl: ''
+          })
+        });
+      } catch (err) {
+        console.warn('Remove photo error:', err);
+      }
+    }
+
+    if (onSave) {
+      onSave({ ...docFields, photoUrl: '' });
+    }
   };
 
-  const handleRemoveSignature = () => {
+  const handleRemoveSignature = async () => {
     setDocFields(prev => ({ ...prev, signatureUrl: '' }));
+    if (applicantData?.personal) applicantData.personal.signature = '';
+    if (applicantData) applicantData.signature = '';
+
+    const userId = applicantData?.userId || applicantData?.user?.id || applicantData?.user_id;
+    const loanId = applicantData?.id || applicantData?.loanId;
+    if (userId) {
+      const staffHeaders = { 'Content-Type': 'application/json' };
+      const sessionStr = typeof window !== 'undefined' ? localStorage.getItem('staff_session') : null;
+      if (sessionStr) staffHeaders['x-staff-session'] = sessionStr;
+
+      try {
+        await fetch('/api/staff/applicant', {
+          method: 'PATCH',
+          headers: staffHeaders,
+          body: JSON.stringify({
+            userId,
+            loanId,
+            docType: 'personal',
+            docKey: 'signature',
+            dataUrl: ''
+          })
+        });
+      } catch (err) {
+        console.warn('Remove signature error:', err);
+      }
+    }
+
+    if (onSave) {
+      onSave({ ...docFields, signatureUrl: '' });
+    }
   };
 
   // Exact 9 documents from Video 3 & document_img reference folder
@@ -758,31 +922,65 @@ export default function DocumentGenerator({ applicantData, onClose, onSave }) {
                     </div>
                   </div>
 
-                  {/* Signature */}
+                  {/* Signature Upload & Background Removal */}
                   <div className="bg-[#081024] border border-blue-900/60 rounded-lg p-2.5 space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-slate-300 font-bold">Signature</span>
+                      <div className="flex items-center space-x-1">
+                        <span className="text-[10px] text-slate-300 font-bold">Signature</span>
+                        <span className="text-[8px] text-cyan-400 bg-cyan-950/80 px-1 py-0.2 rounded border border-cyan-800/40">Auto BG Remove</span>
+                      </div>
                       {docFields.signatureUrl ? (
-                        <span className="text-[9px] text-emerald-400 bg-emerald-950 px-1.5 py-0.5 rounded">✓ Loaded</span>
+                        <span className="text-[9px] text-emerald-400 bg-emerald-950 px-1.5 py-0.5 rounded font-mono">✓ Transparent</span>
                       ) : (
                         <span className="text-[9px] text-slate-500">None</span>
                       )}
                     </div>
+
+                    {/* Preview Box with subtle transparency checkerboard */}
                     {docFields.signatureUrl && (
-                      <div className="h-14 bg-white rounded flex items-center justify-center p-1 border border-slate-300">
-                        <img src={docFields.signatureUrl} alt="Sig" className="max-h-12 max-w-full object-contain" />
+                      <div
+                        className="h-14 rounded flex items-center justify-center p-1 border border-slate-300 shadow-inner relative overflow-hidden"
+                        style={{
+                          backgroundColor: '#ffffff',
+                          backgroundImage: 'linear-gradient(45deg, #f1f5f9 25%, transparent 25%), linear-gradient(-45deg, #f1f5f9 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #f1f5f9 75%), linear-gradient(-45deg, transparent 75%, #f1f5f9 75%)',
+                          backgroundSize: '12px 12px',
+                          backgroundPosition: '0 0, 0 6px, 6px -6px, -6px 0px'
+                        }}
+                      >
+                        <img src={docFields.signatureUrl} alt="Signature Preview" className="max-h-12 max-w-full object-contain mix-blend-multiply" />
                       </div>
                     )}
+
                     <div className="flex items-center space-x-1.5">
-                      <label className="flex-1 cursor-pointer block text-center py-1 bg-blue-950 hover:bg-blue-900 border border-blue-800 rounded text-blue-200 text-[10px] font-semibold transition-colors">
-                        <span>Change Signature</span>
-                        <input type="file" accept="image/*" onChange={handleSignatureUpload} className="hidden" />
+                      <label
+                        className={`flex-1 cursor-pointer block text-center py-1.5 rounded text-[10px] font-semibold transition-all ${
+                          processingSignature
+                            ? 'bg-blue-900 text-blue-300 opacity-70 pointer-events-none'
+                            : 'bg-blue-950 hover:bg-blue-900 border border-blue-800 text-blue-200 active:scale-[0.98]'
+                        }`}
+                      >
+                        {processingSignature ? (
+                          <span className="flex items-center justify-center space-x-1.5">
+                            <Loader2 size={12} className="animate-spin text-cyan-400" />
+                            <span>রিমুভ হচ্ছে...</span>
+                          </span>
+                        ) : (
+                          <span>Change Signature</span>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={processingSignature}
+                          onChange={handleSignatureUpload}
+                          className="hidden"
+                        />
                       </label>
                       {docFields.signatureUrl && (
                         <button
                           type="button"
                           onClick={handleRemoveSignature}
-                          className="px-2 py-1 bg-rose-950 hover:bg-rose-900 border border-rose-800/60 rounded text-rose-300 text-[10px] font-semibold transition-colors"
+                          disabled={processingSignature}
+                          className="px-2 py-1.5 bg-rose-950 hover:bg-rose-900 border border-rose-800/60 rounded text-rose-300 text-[10px] font-semibold transition-colors disabled:opacity-50"
                           title="Remove Signature"
                         >
                           ✕
